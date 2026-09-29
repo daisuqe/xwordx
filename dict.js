@@ -15,6 +15,7 @@ export class Dict {
     if (dv.getUint32(0, true) !== 0x32445758) throw new Error("BAD DICTIONARY FORMAT"); // "XWD2"
     const count = dv.getUint32(4, true);
     const alen = dv.getUint16(8, true);
+    this._cache = new Map(); // level() の結果 (大きい字にそろえた単語 -> 段)
     this.chars = [];
     for (let i = 0; i < alen; i++) this.chars.push(String.fromCharCode(dv.getUint16(10 + i * 2, true)));
     const off = (10 + alen * 2 + 3) & ~3;
@@ -38,10 +39,16 @@ export class Dict {
 
   // 単語の難しさの段 (0=やさしい 〜 9)。辞書になければ -1。綴りが複数あれば一番やさしい段
   level(word) {
-    const chars = [...canon(word)];
-    if (!chars.length) return -1;
-    const lv = this._min(1, 0, chars);
-    return lv > 15 ? -1 : lv;
+    const key = canon(word);
+    let lv = this._cache.get(key);
+    if (lv === undefined) {
+      const chars = [...key];
+      lv = chars.length ? this._min(1, 0, chars) : 99;
+      lv = lv > 15 ? -1 : lv;
+      if (this._cache.size > 200000) this._cache.clear();
+      this._cache.set(key, lv);
+    }
+    return lv;
   }
 
   _min(p, i, chars) {

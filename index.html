@@ -15,21 +15,16 @@
     <header class="brand">
       <i class="gem blue" aria-hidden="true"></i><h1>XWORDX</h1><i class="gem red" aria-hidden="true"></i>
     </header>
-    <p class="eyebrow">CROSSWORD DUEL</p>
 
     <p class="menu-lead" id="load-status">LOADING DICTIONARY...</p>
     <div class="level-list">
-      <button class="level-choice" type="button" data-lv="3"><strong>EASY</strong><span>COM USES COMMON WORDS</span><small>LV 0-3</small></button>
-      <button class="level-choice" type="button" data-lv="5"><strong>NORMAL</strong><span>COM USES EVERYDAY WORDS</span><small>LV 0-5</small></button>
-      <button class="level-choice" type="button" data-lv="7"><strong>HARD</strong><span>COM KNOWS MORE WORDS</span><small>LV 0-7</small></button>
-      <button class="level-choice" type="button" data-lv="9"><strong>ANY</strong><span>COM USES EVERY WORD</span><small>LV 0-9</small></button>
+      <button class="level-choice" type="button" data-level="easy"><strong>EASY</strong></button>
+      <button class="level-choice" type="button" data-level="normal"><strong>NORMAL</strong></button>
+      <button class="level-choice" type="button" data-level="hard"><strong>HARD</strong></button>
+      <button class="level-choice" type="button" data-level="any"><strong>ANY</strong></button>
     </div>
 
-    <ul class="how" aria-label="How to play">
-      <li>TYPE A HIRAGANA WORD, THEN DRAG FROM A START CELL TO THE RIGHT OR DOWN.</li>
-      <li>THE WORD MUST BE IN THE DICTIONARY AND CROSS OR TOUCH LETTERS ON THE BOARD.</li>
-      <li>YOUR CELLS ARE BLUE, COM'S ARE RED, SHARED CELLS ARE PURPLE. BIG CONNECTED ISLANDS SCORE BONUS POINTS.</li>
-    </ul>
+    <button id="help-open" class="help-button" type="button">HOW TO PLAY</button>
 
     <footer class="credits">
       <p>DICTIONARY: <a href="https://www.edrdg.org/jmdict/j_jmdict.html" target="_blank" rel="noopener">JMDICT</a> / <a href="https://www.edrdg.org/kanjidic/kanjd2index_legacy.html" target="_blank" rel="noopener">KANJIDIC2</a>,
@@ -41,37 +36,150 @@
     </footer>
   </section>
 
+  <!-- HOW TO PLAY -->
+  <section id="help-view" class="help-view" aria-label="How to play" hidden>
+    <div class="match-bar">
+      <button id="help-back" class="btn" type="button">&lt; BACK</button>
+      <button id="help-lang" class="btn help-lang" type="button">ENGLISH</button>
+    </div>
+
+    <!-- 日本語 -->
+    <div id="help-ja" class="help-body" lang="ja">
+      <h2 class="help-title">遊び方</h2>
+
+      <section class="help-block">
+        <h3>単語を置く</h3>
+        <p>ひらがなの単語を入力し、開始マスを押したまま<b>右</b>か<b>下</b>へドラッグします。指を離すと置けます。</p>
+        <p>スマホでは、盤面の下に日本語のフリック入力キーパッドが出ます（タップで「あ」、上下左右にフリックで「い・う・え・お」など）。</p>
+        <ul>
+          <li>辞書にある単語であること（2文字以上、すでに使われた単語は不可）。</li>
+          <li>盤面にある文字と交差するか、隣り合っていること。</li>
+          <li>隣り合ってできる単語も、辞書にある単語であること。</li>
+          <li>置いた手でできた新しい単語は、相手の1ターンが終わるまで、長丸（カプセル）で囲んで表示されます。</li>
+          <li>小さい字は大きい字と同じ扱いです（っ＝つ、ゃ＝や）。大きい字の単語と共用されるまでは、小さい字で表示されます。</li>
+        </ul>
+      </section>
+
+      <section class="help-block">
+        <h3>色</h3>
+        <p><i class="key p"></i>あなたのマス <i class="key c"></i>COMのマス <i class="key b"></i>両方のマス</p>
+        <p>あなたが作った単語（交差してできた単語も含む）のすべての文字が、あなたのマスになります。COMの文字と交差したマスは紫になります。</p>
+      </section>
+
+      <section class="help-block">
+        <h3>得点</h3>
+        <p><b>単語の得点</b>：その手でできた単語（入力した単語と、隣り合ってできた単語）の文字数の合計です。</p>
+        <p><b>交点の得点</b>：縦の単語と横の単語の両方に入るマスを「交点」と呼びます。その手で<b>新しく交点ができるごとに5点</b>、置いた側に入ります。誰の文字かは関係ありません。単語を交差させる置き方でも、並べて置いて縦横の単語が新しく交わる置き方でも数えます（例：「あまどい」の下に「すみれ」を並べて「どす」「いみ」ができると、ど・い・す・みの4つで20点）。すでにある交点は、もう一度は数えません。</p>
+        <p><b>島の得点</b>：自分のマスが上下左右につながったまとまりを「島」と呼びます（紫のマスも数えます）。島が<b>10マス</b>になるごとに<b>10点</b>入ります。</p>
+        <table class="island-table" aria-label="島の得点">
+          <tr><th>マス数</th><td>9まで</td><td>10〜19</td><td>20〜29</td><td>30〜39</td></tr>
+          <tr><th>得点</th><td>0</td><td>10</td><td>20</td><td>30</td></tr>
+        </table>
+        <p>島の得点は盤面から数え直すので、積み上げではありません。<b>合計 ＝ 単語の得点 ＋ 交点の得点 ＋ 島の得点</b>です。</p>
+        <p>手を置くたびに、増えた点数が画面の中央に内訳つきで表示されます（単語、隣り合ってできた単語、交点、島の順）。対局中はスコア欄をタップすると、それまでの内訳が見られます。</p>
+      </section>
+
+      <section class="help-block">
+        <h3>終了</h3>
+        <p><b>2人が続けてパス</b>するか、盤面が埋まると終了です。合計が高い方の勝ちです。</p>
+      </section>
+
+      <section class="help-block">
+        <h3>COMのレベル</h3>
+        <p>単語には難しさの「段」（0が一番やさしい、9が一番まれ）が付いています。</p>
+        <ul>
+          <li><b>EASY</b>：<b>9×9の盤面</b>（ほかは11×11）。段0〜1の簡単な単語だけ、5文字まで。交差でしかつなげず、島は気にしません。</li>
+          <li><b>NORMAL</b>：段0〜3、6文字まで。交差を好み、島はほとんど気にしません。</li>
+          <li><b>HARD</b>：段0〜6、7文字まで。島を意識して置きます。</li>
+          <li><b>ANY</b>：すべての単語、8文字まで。ほぼ最善手を選びます。</li>
+        </ul>
+        <p>あなたは、レベルに関係なく、辞書にあるどんな単語でも使えます。</p>
+      </section>
+    </div>
+
+    <!-- English -->
+    <div id="help-en" class="help-body" lang="en" hidden>
+      <h2 class="help-title">HOW TO PLAY</h2>
+
+      <section class="help-block">
+        <h3>PLACE A WORD</h3>
+        <p>TYPE A HIRAGANA WORD. PRESS A START CELL AND DRAG <b>RIGHT</b> OR <b>DOWN</b>. RELEASE TO PLACE IT.</p>
+        <p>ON A PHONE, A JAPANESE FLICK KEYPAD APPEARS BELOW THE BOARD (TAP FOR あ, FLICK FOR い う え お).</p>
+        <ul>
+          <li>THE WORD MUST BE IN THE DICTIONARY (2+ LETTERS, NOT USED BEFORE).</li>
+          <li>IT MUST CROSS OR TOUCH LETTERS ALREADY ON THE BOARD.</li>
+          <li>WORDS FORMED BY TOUCHING ALSO HAVE TO BE REAL WORDS.</li>
+          <li>THE NEW WORDS FROM YOUR MOVE ARE OUTLINED WITH A CAPSULE UNTIL THE OPPONENT'S TURN ENDS.</li>
+          <li>SMALL KANA COUNT AS THEIR BIG FORM (っ = つ, ゃ = や). A CELL SHOWS THE SMALL FORM UNTIL A WORD USES IT IN THE BIG FORM.</li>
+        </ul>
+      </section>
+
+      <section class="help-block">
+        <h3>COLORS</h3>
+        <p><i class="key p"></i>YOUR CELLS <i class="key c"></i>COM'S CELLS <i class="key b"></i>USED BY BOTH</p>
+        <p>EVERY LETTER OF EVERY WORD YOU FORM BECOMES YOURS, INCLUDING CROSSED LETTERS. CROSSING A COM LETTER MAKES IT PURPLE.</p>
+      </section>
+
+      <section class="help-block">
+        <h3>SCORE</h3>
+        <p><b>WORD POINTS</b> &mdash; ONE POINT PER LETTER, FOR EVERY WORD YOUR MOVE FORMS (THE WORD YOU TYPED PLUS ANY WORDS FORMED BY TOUCHING).</p>
+        <p><b>CROSSING POINTS</b> &mdash; A CROSSING IS A CELL THAT BELONGS TO BOTH AN ACROSS WORD AND A DOWN WORD. YOU EARN <b>5 POINTS FOR EACH NEW CROSSING</b> YOUR MOVE CREATES, NO MATTER WHOSE LETTERS THEY ARE. IT COUNTS WHEN YOU CROSS A WORD AND ALSO WHEN YOU PLACE A WORD SIDE BY SIDE AND NEW ACROSS/DOWN WORDS MEET (E.G. PLACING すみれ UNDER あまどい MAKES どす AND いみ: 4 CROSSINGS = 20 POINTS). EXISTING CROSSINGS ARE NOT COUNTED AGAIN.</p>
+        <p><b>ISLAND POINTS</b> &mdash; AN ISLAND IS A GROUP OF YOUR CELLS CONNECTED UP, DOWN, LEFT OR RIGHT (PURPLE COUNTS). EVERY <b>10 CELLS</b> IN AN ISLAND EARNS <b>10 POINTS</b>.</p>
+        <table class="island-table" aria-label="Island points">
+          <tr><th>CELLS</th><td>UP TO 9</td><td>10-19</td><td>20-29</td><td>30-39</td></tr>
+          <tr><th>POINTS</th><td>0</td><td>10</td><td>20</td><td>30</td></tr>
+        </table>
+        <p>ISLAND POINTS ARE RECOUNTED FROM THE BOARD, NOT ADDED UP. <b>TOTAL = WORD + CROSSING + ISLAND POINTS.</b></p>
+        <p>AFTER EACH MOVE, THE POINTS GAINED APPEAR IN THE CENTER: WORDS, TOUCHING WORDS, CROSSINGS, THEN THE ISLAND BONUS. DURING A GAME, TAP A SCORE TO SEE ITS TOTALS BY TYPE.</p>
+      </section>
+
+      <section class="help-block">
+        <h3>THE END</h3>
+        <p>THE GAME ENDS WHEN <b>BOTH PLAYERS PASS IN A ROW</b> OR THE BOARD IS FULL. THE HIGHER TOTAL WINS.</p>
+      </section>
+
+      <section class="help-block">
+        <h3>COM LEVELS</h3>
+        <p>EVERY WORD HAS A DIFFICULTY LEVEL FROM 0 (EASIEST) TO 9 (RAREST).</p>
+        <ul>
+          <li><b>EASY</b> &mdash; <b>9x9 BOARD</b> (OTHERS ARE 11x11). LEVEL 0-1 WORDS, UP TO 5 LETTERS. ONLY CROSSES YOUR LETTERS. IGNORES ISLANDS.</li>
+          <li><b>NORMAL</b> &mdash; LEVEL 0-3, UP TO 6 LETTERS. LIKES CROSSING, BARELY THINKS ABOUT ISLANDS.</li>
+          <li><b>HARD</b> &mdash; LEVEL 0-6, UP TO 7 LETTERS. BUILDS ISLANDS.</li>
+          <li><b>ANY</b> &mdash; EVERY WORD, UP TO 8 LETTERS. PLAYS FOR NEAR-BEST SCORES.</li>
+        </ul>
+        <p>YOU CAN ALWAYS USE ANY WORD IN THE DICTIONARY.</p>
+      </section>
+    </div>
+  </section>
+
   <!-- GAME -->
   <section id="game-view" class="game-view" aria-label="Game" hidden>
     <div class="match-bar">
       <button id="menu-back" class="btn" type="button">&lt; MENU</button>
       <span id="com-level"></span>
       <button id="pass" class="btn" type="button">PASS</button>
-      <button id="new" class="btn" type="button">NEW GAME</button>
     </div>
-    <div id="turn" class="turn"></div>
 
     <section class="scores" aria-label="Score">
-      <div class="sc p"><span class="who">YOU</span><b id="sp">0</b><small id="dp"></small></div>
-      <div class="sc c"><span class="who">COM</span><b id="sc">0</b><small id="dc"></small></div>
+      <div class="sc p" role="button" tabindex="0" aria-expanded="false" aria-label="Your score. Tap for details"><span class="who">YOU</span><b id="sp">0</b><small id="dp"></small></div>
+      <div class="sc c" role="button" tabindex="0" aria-expanded="false" aria-label="COM score. Tap for details"><span class="who">COM</span><b id="sc">0</b><small id="dc"></small></div>
     </section>
 
     <div class="entry">
-      <input id="word" type="text" placeholder="TYPE A HIRAGANA WORD" aria-label="Word" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <input id="word" type="text" placeholder="WORD" aria-label="Word" autocomplete="off" autocapitalize="off" spellcheck="false">
     </div>
     <p id="message" role="status"></p>
 
     <div class="board-frame">
-      <div id="board" aria-label="11 by 11 board"></div>
+      <div class="board-wrap">
+        <div id="board" aria-label="Board"></div>
+        <div id="marks" aria-hidden="true"></div>
+      </div>
     </div>
 
-    <ul class="legend" aria-hidden="true">
-      <li><i class="key p"></i>YOURS</li>
-      <li><i class="key c"></i>COM</li>
-      <li><i class="key b"></i>BOTH</li>
-    </ul>
+    <!-- スマホ用の日本語フリック入力 (タッチ端末でだけ game.js が作る) -->
+    <div id="kana-pad" class="kana-pad" aria-label="Kana keypad"></div>
 
-    <h2 class="log-title">LOG</h2>
     <ol id="log" aria-label="Move log"></ol>
 
     <div id="leave-confirm" class="leave-confirm" role="dialog" aria-modal="true" aria-labelledby="leave-text" hidden>
@@ -81,6 +189,9 @@
       </div>
     </div>
   </section>
+
+  <!-- SCORE POP-UP (center of the screen) -->
+  <div id="pop" class="pop" hidden><div id="pop-card" class="pop-card"></div></div>
 
 </main>
 <script>
