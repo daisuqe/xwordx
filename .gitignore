@@ -1,0 +1,6 @@
+# 辞書の元データと作業ファイル (公開不要・大きい)。data/nouns.bin だけ公開すればよい
+_work/
+
+# Python
+__pycache__/
+*.pyc

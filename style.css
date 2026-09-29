@@ -1,0 +1,100 @@
+/* GRAVITY FOUR の雰囲気に合わせたスタイル: 黒緑の背景 + 走査線 + ネオンの枠 + ドットフォント */
+@font-face { font-family: yodaka; src: url("yodaka.woff") format("woff"); font-display: swap; }
+/* 盤面用: Noto Sans JP Bold のひらがなサブセット (fonts/OFL.txt) */
+@font-face {
+  font-family: "Noto Sans JP Hira";
+  font-weight: 700;
+  font-display: swap;
+  src: url("fonts/NotoSansJP-Bold-hira.woff2") format("woff2");
+}
+:root {
+  color-scheme: dark;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  color: #d4f8e9;
+  background: #050a0b;
+  --line: #237759; --glow: #2ba46e; --dim: #78ad98;
+  --blue: #2c66c9; --blue-text: #8db8ff;
+  --red: #b8324a; --red-text: #ff8da1;
+  --both: #7b3fc2; --both-text: #cfa6ff;
+  --gold: #e8e070;
+  --kana: "Noto Sans JP Hira", "Yu Gothic", Meiryo, sans-serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { min-height: 100vh; margin: 0; background: radial-gradient(ellipse at 50% -25%, #103329 0, #050a0b 56%); }
+body::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .14; background: repeating-linear-gradient(0deg, transparent 0 3px, #0f4837 4px); }
+button, select { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid #a8ffe0; outline-offset: 3px; }
+h1, h2, p { margin-top: 0; }
+
+.app { position: relative; max-width: 620px; margin: auto; padding: 22px clamp(12px, 3vw, 24px) 42px; }
+.brand { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.brand h1 { margin: 6px 0 3px; font: clamp(26px, 6vw, 40px)/1.1 yodaka, monospace; letter-spacing: .08em; color: #d8fff0; text-shadow: 0 0 22px #2bd98b6b; }
+.eyebrow { margin: 0 0 16px; text-align: center; font-size: 12px; letter-spacing: .18em; color: var(--dim); }
+.gem { width: 14px; height: 14px; transform: rotate(45deg); }
+.gem.blue { background: var(--blue); box-shadow: 0 0 12px var(--blue); }
+.gem.red { background: var(--red); box-shadow: 0 0 12px var(--red); }
+
+.match-bar { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: .12em; color: var(--dim); }
+#turn { flex: 1; padding: 6px 0; font: 15px yodaka, monospace; letter-spacing: .1em; color: #b4f5d9; }
+#turn.p { color: var(--blue-text); }
+#turn.c { color: var(--red-text); animation: blink 1s steps(2, end) infinite; }
+#turn.over { color: var(--gold); }
+@keyframes blink { 50% { opacity: .35; } }
+@media (max-width: 520px) {
+  .match-bar { flex-wrap: wrap; }
+  #turn { flex-basis: 100%; }
+  .com-level { flex: 1; }
+}
+.com-level { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+select { padding: 6px 4px; border: 1px solid #28674e; background: #0a1c15; color: #a3ebc8; font-size: 11px; letter-spacing: .08em; }
+.btn { padding: 9px 12px; border: 1px solid #28674e; background: #0a1c15; color: #a3ebc8; font-size: 11px; letter-spacing: .1em; }
+.btn:hover { border-color: #83ffbd; background: #17402c; }
+.btn:disabled { color: #4f7565; border-color: #1c3a2d; cursor: default; }
+
+.scores { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.sc { display: grid; grid-template-columns: 1fr auto; align-items: baseline; padding: 8px 12px; border: 1px solid; background: linear-gradient(145deg, #12251f, #081511); box-shadow: inset 0 0 0 1px #092c20, 0 8px 28px #0009; }
+.sc.p { border-color: var(--blue); }
+.sc.c { border-color: var(--red); }
+.sc .who { font-size: 12px; letter-spacing: .18em; }
+.sc.p .who, .sc.p b { color: var(--blue-text); }
+.sc.c .who, .sc.c b { color: var(--red-text); }
+.sc b { font: 28px yodaka, monospace; }
+.sc small { grid-column: 1 / -1; font-size: 9px; letter-spacing: .08em; color: var(--dim); }
+
+.entry { margin-top: 14px; }
+#word { width: 100%; padding: 10px 12px; border: 1px solid var(--glow); background: #06130f; color: #d8fff0; font: 20px/1.2 var(--kana); letter-spacing: .1em; box-shadow: 0 0 21px #1baa6c30, inset 0 0 17px #0d402a80; }
+#word::placeholder { font: 12px ui-monospace, Consolas, monospace; letter-spacing: .18em; color: #4f7565; }
+#message { min-height: 2.6em; margin: 10px 0; font-size: 11px; line-height: 1.4; letter-spacing: .1em; color: #b4f5d9; }
+#message.bad { color: var(--red-text); }
+
+.board-frame { padding: 8px; border: 1px solid var(--glow); box-shadow: 0 0 21px #1baa6c47, inset 0 0 17px #0d402a80; }
+#board {
+  display: grid; grid-template-columns: repeat(var(--n, 11), 1fr); gap: 1px; width: 100%; aspect-ratio: 1;
+  background: #0f3a2a; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.cell {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  background: #07130f; color: #d8fff0; font: 700 clamp(14px, 5vw, 26px)/1 var(--kana);
+}
+.cell.filled { background: #1a3a2e; text-shadow: 0 0 8px #2bd98b66; }
+.cell.o1 { background: var(--blue); text-shadow: 0 0 8px #8db8ff99; }
+.cell.o2 { background: var(--red); text-shadow: 0 0 8px #ff8da199; }
+.cell.o3 { background: var(--both); text-shadow: 0 0 8px #cfa6ff99; }
+.cell.last { outline: 2px solid var(--gold); outline-offset: -2px; }
+.cell.pv-ok { background: #124a34; outline: 2px dashed #57ffb6; outline-offset: -2px; }
+.cell.pv-ng { background: #26302c; color: #7a8b83; outline: 2px dashed #6b7a73; outline-offset: -2px; }
+
+.legend { display: flex; justify-content: center; gap: 18px; margin: 12px 0 0; padding: 0; list-style: none; font-size: 10px; letter-spacing: .14em; color: var(--dim); }
+.key { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+.key.p { background: var(--blue); } .key.c { background: var(--red); } .key.b { background: var(--both); }
+
+.credits { margin-top: 28px; padding-top: 12px; border-top: 1px solid #0f3a2a; font-size: 9px; line-height: 1.7; letter-spacing: .08em; color: #5f8a76; }
+.credits p { margin: 0 0 4px; }
+.credits a { color: #86c9a9; }
+.log-title { margin: 22px 0 6px; font: 16px yodaka, monospace; letter-spacing: .12em; color: #b4ffdb; }
+#log { margin: 0; padding: 0; list-style: none; max-height: 220px; overflow: auto; font: 13px/1.6 var(--kana); }
+#log li { padding: 3px 8px; border-left: 3px solid; background: #081511; margin-bottom: 3px; }
+#log li.p { border-color: var(--blue); color: var(--blue-text); }
+#log li.c { border-color: var(--red); color: var(--red-text); }

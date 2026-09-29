@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#050a0b">
+<title>XWORDX</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="app">
+  <header class="brand">
+    <i class="gem blue" aria-hidden="true"></i><h1>XWORDX</h1><i class="gem red" aria-hidden="true"></i>
+  </header>
+  <p class="eyebrow">CROSSWORD DUEL</p>
+
+  <div class="match-bar">
+    <span id="turn"></span>
+    <label class="com-level">COM LEVEL
+      <select id="lvC">
+        <option value="3">EASY</option>
+        <option value="5">NORMAL</option>
+        <option value="7">HARD</option>
+        <option value="9">ANY</option>
+      </select>
+    </label>
+    <button id="pass" class="btn" type="button">PASS</button>
+    <button id="new" class="btn" type="button">NEW GAME</button>
+  </div>
+
+  <section class="scores" aria-label="Score">
+    <div class="sc p"><span class="who">YOU</span><b id="sp">0</b><small id="dp"></small></div>
+    <div class="sc c"><span class="who">COM</span><b id="sc">0</b><small id="dc"></small></div>
+  </section>
+
+  <div class="entry">
+    <input id="word" type="text" placeholder="TYPE A HIRAGANA WORD" aria-label="Word" autocomplete="off" autocapitalize="off" spellcheck="false">
+  </div>
+  <p id="message" role="status"></p>
+
+  <div class="board-frame">
+    <div id="board" aria-label="11 by 11 board"></div>
+  </div>
+
+  <ul class="legend" aria-hidden="true">
+    <li><i class="key p"></i>YOURS</li>
+    <li><i class="key c"></i>COM</li>
+    <li><i class="key b"></i>BOTH</li>
+  </ul>
+
+  <h2 class="log-title">LOG</h2>
+  <ol id="log" aria-label="Move log"></ol>
+
+  <footer class="credits">
+    <p>DICTIONARY: <a href="https://www.edrdg.org/jmdict/j_jmdict.html" target="_blank" rel="noopener">JMDICT</a> / <a href="https://www.edrdg.org/kanjidic/kanjd2index_legacy.html" target="_blank" rel="noopener">KANJIDIC2</a>,
+      &copy; <a href="https://www.edrdg.org/" target="_blank" rel="noopener">EDRDG</a>, USED UNDER
+      <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>
+      (<a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">LICENCE</a>).
+      MODIFIED: CONVERTED TO A COMPACT BINARY WITH DIFFICULTY LEVELS.</p>
+    <p>FONT: NOTO SANS JP (SUBSET), <a href="fonts/OFL.txt">SIL OPEN FONT LICENSE 1.1</a>.</p>
+  </footer>
+</main>
+<script>
+  if (location.protocol === "file:")
+    document.getElementById("message").textContent = "OPEN VIA A WEB SERVER: RUN python tools/serve.py, THEN VISIT http://localhost:8000/";
+</script>
+<script type="module" src="game.js"></script>
+</body>
+</html>
