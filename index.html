@@ -9,60 +9,83 @@
 </head>
 <body>
 <main class="app">
-  <header class="brand">
-    <i class="gem blue" aria-hidden="true"></i><h1>XWORDX</h1><i class="gem red" aria-hidden="true"></i>
-  </header>
-  <p class="eyebrow">CROSSWORD DUEL</p>
 
-  <div class="match-bar">
-    <span id="turn"></span>
-    <label class="com-level">COM LEVEL
-      <select id="lvC">
-        <option value="3">EASY</option>
-        <option value="5">NORMAL</option>
-        <option value="7">HARD</option>
-        <option value="9">ANY</option>
-      </select>
-    </label>
-    <button id="pass" class="btn" type="button">PASS</button>
-    <button id="new" class="btn" type="button">NEW GAME</button>
-  </div>
+  <!-- TITLE -->
+  <section id="title-view" class="title-view" aria-label="Title">
+    <header class="brand">
+      <i class="gem blue" aria-hidden="true"></i><h1>XWORDX</h1><i class="gem red" aria-hidden="true"></i>
+    </header>
+    <p class="eyebrow">CROSSWORD DUEL</p>
 
-  <section class="scores" aria-label="Score">
-    <div class="sc p"><span class="who">YOU</span><b id="sp">0</b><small id="dp"></small></div>
-    <div class="sc c"><span class="who">COM</span><b id="sc">0</b><small id="dc"></small></div>
+    <p class="menu-lead" id="load-status">LOADING DICTIONARY...</p>
+    <div class="level-list">
+      <button class="level-choice" type="button" data-lv="3"><strong>EASY</strong><span>COM USES COMMON WORDS</span><small>LV 0-3</small></button>
+      <button class="level-choice" type="button" data-lv="5"><strong>NORMAL</strong><span>COM USES EVERYDAY WORDS</span><small>LV 0-5</small></button>
+      <button class="level-choice" type="button" data-lv="7"><strong>HARD</strong><span>COM KNOWS MORE WORDS</span><small>LV 0-7</small></button>
+      <button class="level-choice" type="button" data-lv="9"><strong>ANY</strong><span>COM USES EVERY WORD</span><small>LV 0-9</small></button>
+    </div>
+
+    <ul class="how" aria-label="How to play">
+      <li>TYPE A HIRAGANA WORD, THEN DRAG FROM A START CELL TO THE RIGHT OR DOWN.</li>
+      <li>THE WORD MUST BE IN THE DICTIONARY AND CROSS OR TOUCH LETTERS ON THE BOARD.</li>
+      <li>YOUR CELLS ARE BLUE, COM'S ARE RED, SHARED CELLS ARE PURPLE. BIG CONNECTED ISLANDS SCORE BONUS POINTS.</li>
+    </ul>
+
+    <footer class="credits">
+      <p>DICTIONARY: <a href="https://www.edrdg.org/jmdict/j_jmdict.html" target="_blank" rel="noopener">JMDICT</a> / <a href="https://www.edrdg.org/kanjidic/kanjd2index_legacy.html" target="_blank" rel="noopener">KANJIDIC2</a>,
+        &copy; <a href="https://www.edrdg.org/" target="_blank" rel="noopener">EDRDG</a>, USED UNDER
+        <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>
+        (<a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">LICENCE</a>).
+        MODIFIED: CONVERTED TO A COMPACT BINARY WITH DIFFICULTY LEVELS.</p>
+      <p>FONT: NOTO SANS JP (SUBSET), <a href="fonts/OFL.txt">SIL OPEN FONT LICENSE 1.1</a>.</p>
+    </footer>
   </section>
 
-  <div class="entry">
-    <input id="word" type="text" placeholder="TYPE A HIRAGANA WORD" aria-label="Word" autocomplete="off" autocapitalize="off" spellcheck="false">
-  </div>
-  <p id="message" role="status"></p>
+  <!-- GAME -->
+  <section id="game-view" class="game-view" aria-label="Game" hidden>
+    <div class="match-bar">
+      <button id="menu-back" class="btn" type="button">&lt; MENU</button>
+      <span id="com-level"></span>
+      <button id="pass" class="btn" type="button">PASS</button>
+      <button id="new" class="btn" type="button">NEW GAME</button>
+    </div>
+    <div id="turn" class="turn"></div>
 
-  <div class="board-frame">
-    <div id="board" aria-label="11 by 11 board"></div>
-  </div>
+    <section class="scores" aria-label="Score">
+      <div class="sc p"><span class="who">YOU</span><b id="sp">0</b><small id="dp"></small></div>
+      <div class="sc c"><span class="who">COM</span><b id="sc">0</b><small id="dc"></small></div>
+    </section>
 
-  <ul class="legend" aria-hidden="true">
-    <li><i class="key p"></i>YOURS</li>
-    <li><i class="key c"></i>COM</li>
-    <li><i class="key b"></i>BOTH</li>
-  </ul>
+    <div class="entry">
+      <input id="word" type="text" placeholder="TYPE A HIRAGANA WORD" aria-label="Word" autocomplete="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <p id="message" role="status"></p>
 
-  <h2 class="log-title">LOG</h2>
-  <ol id="log" aria-label="Move log"></ol>
+    <div class="board-frame">
+      <div id="board" aria-label="11 by 11 board"></div>
+    </div>
 
-  <footer class="credits">
-    <p>DICTIONARY: <a href="https://www.edrdg.org/jmdict/j_jmdict.html" target="_blank" rel="noopener">JMDICT</a> / <a href="https://www.edrdg.org/kanjidic/kanjd2index_legacy.html" target="_blank" rel="noopener">KANJIDIC2</a>,
-      &copy; <a href="https://www.edrdg.org/" target="_blank" rel="noopener">EDRDG</a>, USED UNDER
-      <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>
-      (<a href="https://www.edrdg.org/edrdg/licence.html" target="_blank" rel="noopener">LICENCE</a>).
-      MODIFIED: CONVERTED TO A COMPACT BINARY WITH DIFFICULTY LEVELS.</p>
-    <p>FONT: NOTO SANS JP (SUBSET), <a href="fonts/OFL.txt">SIL OPEN FONT LICENSE 1.1</a>.</p>
-  </footer>
+    <ul class="legend" aria-hidden="true">
+      <li><i class="key p"></i>YOURS</li>
+      <li><i class="key c"></i>COM</li>
+      <li><i class="key b"></i>BOTH</li>
+    </ul>
+
+    <h2 class="log-title">LOG</h2>
+    <ol id="log" aria-label="Move log"></ol>
+
+    <div id="leave-confirm" class="leave-confirm" role="dialog" aria-modal="true" aria-labelledby="leave-text" hidden>
+      <div class="leave-card">
+        <p id="leave-text">LEAVE THIS GAME?</p>
+        <div class="leave-actions"><button id="leave-yes" class="btn" type="button">YES</button><button id="leave-no" class="btn" type="button">NO</button></div>
+      </div>
+    </div>
+  </section>
+
 </main>
 <script>
   if (location.protocol === "file:")
-    document.getElementById("message").textContent = "OPEN VIA A WEB SERVER: RUN python tools/serve.py, THEN VISIT http://localhost:8000/";
+    document.getElementById("load-status").textContent = "OPEN VIA A WEB SERVER: RUN python tools/serve.py, THEN VISIT http://localhost:8000/";
 </script>
 <script type="module" src="game.js"></script>
 </body>

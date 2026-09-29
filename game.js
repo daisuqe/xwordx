@@ -26,8 +26,28 @@ let dict = null;
 // big[r][c] = 大きい字として使われた単語が通っている (小さい字がある字は、これが false の間は小さい字で表示)
 let letters, owner, big;
 let wordPts, used, turn, over, passes, lastMove;
-const maxLv = { [P]: 9, [C]: 5 }; // それぞれが使える語の段の上限 (0=やさしい〜9)
+const maxLv = { [P]: 9, [C]: 5 }; // それぞれが使える語の段の上限 (0=やさしい〜9)。あなたは常に全語
+const LEVEL_NAME = { 3: "EASY", 5: "NORMAL", 7: "HARD", 9: "ANY" };
+let session = 0; // 新しい対局ごとに増やす。古い対局の COM の手番を無効にする
 let cellEls = [];
+
+// 入力欄にカーソルを置く (キーボードが出て盤面を隠すタッチ端末では自動では置かない)
+function focusWord() {
+  if (matchMedia("(hover: hover)").matches) wordEl.focus({ preventScroll: true });
+}
+
+function showView(name) {
+  $("title-view").hidden = name !== "title";
+  $("game-view").hidden = name !== "game";
+  if (name === "title") window.scrollTo(0, 0);
+}
+
+function startGame(level) {
+  maxLv[C] = level;
+  $("com-level").textContent = `COM: ${LEVEL_NAME[level]}`;
+  showView("game");
+  newGame();
+}
 
 const toHira = (s) =>
   s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60)).replace(/\s+/g, "");
@@ -36,6 +56,7 @@ const currentWord = () => toHira(wordEl.value);
 // ---------- 盤面・得点 ----------
 
 function newGame() {
+  session++;
   letters = Array.from({ length: SIZE }, () => Array(SIZE).fill(""));
   owner = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
   big = Array.from({ length: SIZE }, () => Array(SIZE).fill(false));
@@ -55,6 +76,7 @@ function newGame() {
   wordEl.value = "";
   render();
   say("YOUR TURN. TYPE A WORD, THEN DRAG FROM A START CELL TO THE RIGHT OR DOWN.");
+  focusWord();
 }
 
 // bit を持つマスの連結成分(島)の面積一覧
@@ -222,9 +244,11 @@ function afterMove(who) {
   render();
   if (turn === C) {
     say("COM IS THINKING...");
-    setTimeout(comTurn, COM_DELAY);
+    const id = session;
+    setTimeout(() => id === session && comTurn(), COM_DELAY);
   } else {
     say("YOUR TURN");
+    focusWord();
   }
 }
 
@@ -385,12 +409,27 @@ boardEl.addEventListener("pointercancel", () => { drag = null; render(); });
 
 wordEl.addEventListener("change", () => (wordEl.value = currentWord()));
 $("new").addEventListener("click", newGame);
-$("lvC").value = String(maxLv[C]);
-$("lvC").addEventListener("change", () => (maxLv[C] = Number($("lvC").value)));
+for (const btn of document.querySelectorAll(".level-choice")) {
+  btn.addEventListener("click", () => dict && startGame(Number(btn.dataset.lv)));
+}
+// MENU: 対局中なら確認してからタイトルへ
+$("menu-back").addEventListener("click", () => {
+  if (!over && logEl.children.length) $("leave-confirm").hidden = false;
+  else showView("title");
+});
+$("leave-yes").addEventListener("click", () => { $("leave-confirm").hidden = true; session++; showView("title"); });
+$("leave-no").addEventListener("click", () => { $("leave-confirm").hidden = true; focusWord(); });
 $("pass").addEventListener("click", () => { if (dict && !over && turn === P) pass(P); });
 
+const loadEl = $("load-status");
 buildBoard();
-say("LOADING DICTIONARY...");
 Dict.load("data/nouns.bin")
-  .then((d) => { dict = d; newGame(); })
-  .catch((err) => say(`${err.message} (OPEN VIA A WEB SERVER, NOT file://)`, true));
+  .then((d) => {
+    dict = d;
+    loadEl.textContent = "SELECT COM LEVEL";
+    document.body.classList.add("ready");
+  })
+  .catch((err) => {
+    loadEl.textContent = `${err.message} (OPEN VIA A WEB SERVER, NOT file://)`;
+    loadEl.classList.add("bad");
+  });
