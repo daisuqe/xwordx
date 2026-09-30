@@ -22,8 +22,10 @@
       <button class="level-choice" type="button" data-level="normal"><strong>NORMAL</strong></button>
       <button class="level-choice" type="button" data-level="hard"><strong>HARD</strong></button>
       <button class="level-choice" type="button" data-level="any"><strong>ANY</strong></button>
+      <button class="level-choice" type="button" data-level="rank"><strong>RANK MATCH</strong></button>
     </div>
 
+    <button id="edit-open" class="help-button" type="button">CHARACTER EDIT</button>
     <button id="help-open" class="help-button" type="button">HOW TO PLAY</button>
 
     <footer class="credits">
@@ -95,6 +97,26 @@
         </ul>
         <p>あなたは、レベルに関係なく、辞書にあるどんな単語でも使えます。</p>
       </section>
+
+      <section class="help-block">
+        <h3>ランクマッチ</h3>
+        <p>あなたと COM のキャラクター99人が、1つのランキングに並びます。<b>自分の順位の上下10人</b>から相手を選んで対戦します。</p>
+        <ul>
+          <li>チェスと同じ Elo 方式です。勝つとレーティングが上がり、順位の高い相手に勝つほど大きく上がります。負けると下がります。</li>
+          <li>相手が強いほど、COM は長い単語や難しい単語を使い、島も意識して打ってきます。</li>
+          <li>対局の途中で抜けると、負けになります。</li>
+          <li>COM どうしの順位は、<b>1日の最初の起動</b>のときにまとめて対戦して入れ替わります。前回からの上がり下がりが、一覧に ▲▼ で出ます。</li>
+        </ul>
+      </section>
+
+      <section class="help-block">
+        <h3>そのほか</h3>
+        <ul>
+          <li>手を置くと、その単語が読み上げられます。</li>
+          <li>新しくできた交点には、次の手が置かれるまで、金色のひし形がゆっくり回ります。</li>
+          <li>手を置いた結果は、最低3秒は表示されます。COM も、最低3秒は考えてから打ちます。</li>
+        </ul>
+      </section>
     </div>
 
     <!-- English -->
@@ -149,7 +171,54 @@
         </ul>
         <p>YOU CAN ALWAYS USE ANY WORD IN THE DICTIONARY.</p>
       </section>
+
+      <section class="help-block">
+        <h3>RANK MATCH</h3>
+        <p>YOU AND THE 99 COM CHARACTERS SHARE ONE RANKING. CHOOSE AN OPPONENT FROM <b>THE 10 ABOVE AND 10 BELOW YOUR RANK</b>.</p>
+        <ul>
+          <li>IT USES THE SAME ELO SYSTEM AS CHESS. A WIN RAISES YOUR RATING (MORE FOR BEATING A HIGHER RANK), A LOSS LOWERS IT.</li>
+          <li>THE STRONGER THE OPPONENT, THE LONGER AND RARER THE WORDS IT USES, AND THE MORE IT PLAYS FOR ISLANDS.</li>
+          <li>LEAVING A GAME BEFORE IT ENDS COUNTS AS A LOSS.</li>
+          <li>COM VS COM RANKINGS ARE UPDATED BY A BATCH OF MATCHES ON <b>THE FIRST VISIT OF EACH DAY</b>. THE LIST SHOWS RISES AND FALLS SINCE THEN WITH ARROWS.</li>
+        </ul>
+      </section>
+
+      <section class="help-block">
+        <h3>OTHER</h3>
+        <ul>
+          <li>THE PLACED WORD IS READ ALOUD.</li>
+          <li>EACH NEW CROSSING GETS A SLOWLY SPINNING GOLD DIAMOND UNTIL THE NEXT WORD IS PLACED.</li>
+          <li>EACH RESULT STAYS ON SCREEN FOR AT LEAST 3 SECONDS, AND COM THINKS FOR AT LEAST 3 SECONDS.</li>
+        </ul>
+      </section>
     </div>
+  </section>
+
+  <!-- CHARACTER EDIT -->
+  <section id="edit-view" class="edit-view" aria-label="Character edit" hidden>
+    <div class="match-bar"><button id="edit-back" class="btn" type="button">&lt; BACK</button></div>
+    <h2 class="help-title">CHARACTER EDIT</h2>
+    <div class="edit-preview"><span class="face player big" id="edit-face"></span></div>
+    <div class="edit-expr" id="edit-expr" role="group" aria-label="Expression preview"><button class="btn selected" type="button" data-expr="normal">NORMAL</button><button class="btn" type="button" data-expr="win">WIN</button><button class="btn" type="button" data-expr="lose">LOSE</button></div>
+    <label class="edit-name" for="edit-name">NAME
+      <input id="edit-name" type="text" maxlength="4" pattern="[A-Z]{1,4}" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Name, one to four uppercase letters">
+    </label>
+    <section class="edit-section"><h3>HAIR STYLE</h3><div class="edit-options" id="edit-hair" role="group" aria-label="Hair style"></div></section>
+    <section class="edit-section"><h3>EYES</h3><div class="edit-options" id="edit-eyes" role="group" aria-label="Eyes"></div></section>
+    <section class="edit-section"><h3>MOUTH</h3><div class="edit-options" id="edit-mouth" role="group" aria-label="Mouth"></div></section>
+    <section class="edit-section"><h3>HAIR COLOR</h3><div class="edit-options" id="edit-hair-color" role="group" aria-label="Hair color"></div></section>
+    <section class="edit-section"><h3>CLOTH COLOR</h3><div class="edit-options" id="edit-cloth-color" role="group" aria-label="Cloth color"></div></section>
+    <section class="edit-section"><h3>SKIN COLOR</h3><div class="edit-options" id="edit-skin-color" role="group" aria-label="Skin color"></div></section>
+  </section>
+
+  <!-- RANK MATCH -->
+  <section id="rank-view" class="rank-view" aria-label="Rank match" hidden>
+    <div class="match-bar"><button id="rank-back" class="btn" type="button">&lt; BACK</button></div>
+    <h2 class="help-title">RANK MATCH</h2>
+    <button id="rank-start" class="help-button" type="button">MATCH START</button>
+    <p id="rank-summary" class="rank-summary"></p>
+    <p id="rank-daily" class="rank-daily"></p>
+    <ol id="rank-list" class="rank-list" aria-label="Ranks near yours"></ol>
   </section>
 
   <!-- GAME -->
@@ -161,18 +230,19 @@
     </div>
 
     <section class="scores" aria-label="Score">
-      <div class="sc p" role="button" tabindex="0" aria-expanded="false" aria-label="Your score. Tap for details"><span class="who">YOU</span><b id="sp">0</b><small id="dp"></small></div>
-      <div class="sc c" role="button" tabindex="0" aria-expanded="false" aria-label="COM score. Tap for details"><span class="who">COM</span><b id="sc">0</b><small id="dc"></small></div>
+      <div class="sc p" role="button" tabindex="0" aria-expanded="false" aria-label="Your score. Tap for details"><span class="face player" id="you-face"></span><span class="who" id="you-name">YOU</span><b id="sp">0</b><small id="dp"></small></div>
+      <div class="sc c" role="button" tabindex="0" aria-expanded="false" aria-label="COM score. Tap for details"><span class="face" id="com-face"></span><span class="who" id="com-name">COM</span><b id="sc">0</b><small id="dc"></small></div>
     </section>
 
-    <div class="entry">
-      <input id="word" type="text" placeholder="WORD" aria-label="Word" autocomplete="off" autocapitalize="off" spellcheck="false">
-    </div>
     <div class="board-frame">
       <div class="board-wrap">
         <div id="board" aria-label="Board"></div>
         <div id="marks" aria-hidden="true"></div>
       </div>
+    </div>
+
+    <div class="entry">
+      <input id="word" type="text" placeholder="WORD" aria-label="Word" autocomplete="off" autocapitalize="off" spellcheck="false">
     </div>
 
     <!-- スマホ用の日本語フリック入力 (タッチ端末でだけ game.js が作る) -->
@@ -191,6 +261,19 @@
     </div>
   </section>
 
+  <!-- VICTORY -->
+  <div id="victory" class="victory" role="dialog" aria-label="You win" hidden>
+    <div class="vic-rays" aria-hidden="true"></div>
+    <div class="vic-fx" id="vic-fx" aria-hidden="true"></div>
+    <div class="vic-card">
+      <span class="face player vic-face" id="vic-face"></span>
+      <div class="vic-title" id="vic-title">YOU WIN!</div>
+      <div class="vic-score" id="vic-score"></div>
+      <div class="vic-rank" id="vic-rank"></div>
+      <div class="vic-tap">TAP TO CONTINUE</div>
+    </div>
+  </div>
+
   <!-- SCORE POP-UP (center of the screen) -->
   <div id="pop" class="pop" hidden><div id="pop-card" class="pop-card"></div></div>
 
@@ -199,6 +282,9 @@
   if (location.protocol === "file:")
     document.getElementById("load-status").textContent = "OPEN VIA A WEB SERVER: RUN python tools/serve.py, THEN VISIT http://localhost:8000/";
 </script>
+<script src="roster.js"></script>
+<script src="player-data.js"></script>
+<script src="voice.js"></script>
 <script type="module" src="game.js"></script>
 </body>
 </html>

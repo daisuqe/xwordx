@@ -1,4 +1,5 @@
 import { Dict, canon, SMALL_OF } from "./dict.js";
+import { RankBook, todayString } from "./rank.js";
 
 let SIZE = 11; // 盤面の大きさ。レベルごとに変わる (PROFILES.size)
 const MIN_LEN = 2;
@@ -8,9 +9,11 @@ const CROSSING_BONUS = 5; // 新しくできた交点 (縦の単語と横の単�
 const COM_LEAD = 2; // COM が既存文字の何マス手前から単語を始めるか
 const COM_START_BUDGET = 6000; // 探索の開始位置ごとのノード数の上限
 const COM_MAX_EVAL = 2500; // 評価する候補の上限 (多いときは無作為に間引く)
-const COM_DELAY = 400;
+const FAST = new URLSearchParams(location.search).has("fast"); // 動作確認用: 待ち時間を無くす
+const COM_THINK_MS = FAST ? 0 : 3000; // COM が手を打つまでにかける時間の下限 (ms)
 const POP_STEP = 380; // 得点演出: 1行ごとの間隔 (ms)
 const POP_HOLD = 1000; // 合計を出してから消えるまで (ms)
+const POP_MIN_MS = FAST ? 0 : 3000; // 得点の結果を最低でも表示する時間 (ms)。この間はタップで飛ばせない
 const START_KANA = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわ"];
 const DIRS = { right: [0, 1], down: [1, 0] };
 const P = 1, C = 2; // 所有ビット: 1=あなた(青) 2=COM(赤) 3=両方(紫)
@@ -34,6 +37,19 @@ const PROFILES = {
 };
 const EASY_BONUS = 0.3; // 段が1つ易しいごとに評価に足す点
 
+// ランクマッチの COM の性格: 相手のキャラクターの強さ (18〜95) から連続的に決める
+function profileFromStrength(strength) {
+  const t = Math.min(1, Math.max(0, (strength - 15) / 80)); // 0 (弱い) 〜 1 (強い)
+  return {
+    name: "RANK MATCH", size: 11,
+    lv: Math.round(1 + t * 8), maxLen: Math.round(4 + t * 4),
+    crossOnly: t < 0.2, random: t < 0.12,
+    island: t * 1.2, crossBonus: (1 - t) * 2, noise: 3 - t * 2.5, pick: Math.max(1, Math.round(20 - t * 18)),
+  };
+}
+// 通常のレベルで戦うキャラクターを、レベルに見合う強さの中から選ぶ
+const LEVEL_STRENGTH = { easy: [0, 35], normal: [36, 55], hard: [56, 75], any: [76, 100] };
+
 const $ = (id) => document.getElementById(id);
 const boardEl = $("board");
 const wordEl = $("word");
@@ -46,8 +62,71 @@ let dict = null;
 // big[r][c] = 大きい字として使われた単語が通っている (小さい字がある字は、これが false の間は小さい字で表示)
 let letters, owner, big;
 let wordPts, crossPts, used, turn, over, passes, busy;
+let gems = []; // 直近の手で新しくできた交点のマス。次の手が置かれるまで、ひし形をゆっくり回す
 let marks = { [P]: [], [C]: [] }; // 各側の直近の手で新しくできた単語 (マス index の配列の配列)。相手の1ターンが終わるまでカプセルで囲む
 let profile = PROFILES.normal;
+let mode = "level"; // "level": 通常のレベル / "rank": ランクマッチ
+let opponent = null; // COM のキャラクター (名簿の1人)
+const roster = window.XwRoster || [];
+const rankBook = roster.length ? new RankBook(roster) : null;
+if (rankBook) rankBook.dailyUpdate(); // 1日の最初の起動なら、COM 同士の対戦で順位を入れ替える
+let rankRecorded = false; // この対局のランク結果を反映済みか
+let rankFirst = P; // ランクマッチの先攻 (順位の高い方)
+const RANK_FREE_MOVES = 10; // ランクマッチは、置かれた手 (2人ぶん) がこの数に達するまでは、抜けても負けにならない
+let moveCount = 0; // この対局で置かれた手の数 (パスは数えない)
+
+// ---------- あなたのキャラクター (キャラクターエディット) ----------
+// 顔は 16x16 のドット絵。肌・髪・服の 3 枚のマスクに色を塗って重ね、その上に目と口の画像を載せる (GRAVITYFOUR と同じ作り)。
+// 選んだ内容は、このブラウザの localStorage に保存する。
+const PD = window.XwPlayer;
+const PLAYER_KEY = "xwordx-player-v1";
+function readAvatar() {
+  const a = { ...(PD?.defaults || {}), name: "YOU" };
+  if (!PD) return a;
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(PLAYER_KEY)) || {}; } catch (e) { /* 保存がなければ初期値 */ }
+  Object.assign(a, saved);
+  for (const key of ["hair", "eyes", "mouth"]) if (!PD.options[key].includes(a[key])) a[key] = PD.defaults[key];
+  if (a.hair.endsWith("w") && a.mouth === "mouth8") a.mouth = PD.defaults.mouth; // 髪型によっては選べない口がある
+  for (const key of ["hair", "cloth", "skin"]) if (!PD.palettes[key].includes(a[key + "Color"])) a[key + "Color"] = PD.defaults[key + "Color"];
+  a.name = /^[A-Z]{1,4}$/.test(saved.name) ? saved.name : "YOU";
+  return a;
+}
+const avatar = readAvatar();
+NAME[P] = avatar.name;
+const saveAvatar = () => { try { localStorage.setItem(PLAYER_KEY, JSON.stringify(avatar)); } catch (e) { /* 保存できなくても動く */ } };
+
+// マスク (16x16 を 64 桁の16進数で表したもの) の立っているマスに、色を塗る
+function paintMask(canvas, mask, color) {
+  const ctx = canvas.getContext("2d");
+  const image = ctx.createImageData(16, 16);
+  const bytes = Uint8Array.from({ length: 32 }, (_, i) => parseInt(mask.slice(i * 2, i * 2 + 2), 16));
+  const rgb = [1, 3, 5].map((s) => parseInt(color.slice(s, s + 2), 16));
+  for (let px = 0; px < 256; px++) {
+    if (!(bytes[px >> 3] & (128 >> (px & 7)))) continue;
+    image.data.set([rgb[0], rgb[1], rgb[2], 255], px * 4);
+  }
+  ctx.putImageData(image, 0, 0);
+}
+function paintPlayerFace(el) {
+  if (!PD) return;
+  if (!el.firstChild) {
+    el.innerHTML = ["skin", "hair", "cloth"].map((k) => `<canvas data-k="${k}" width="16" height="16"></canvas>`).join("") +
+      '<img class="f-eyes" alt=""><img class="f-mouth" alt="">' + EXPR_HTML;
+  }
+  for (const k of ["skin", "hair", "cloth"]) {
+    const mask = k === "hair" ? PD.layerMasks.hair[avatar.hair] : PD.layerMasks[k];
+    paintMask(el.querySelector(`canvas[data-k="${k}"]`), mask, avatar[k + "Color"]);
+  }
+  el.querySelector(".f-eyes").src = `characters/parts/${avatar.eyes}.png`;
+  el.querySelector(".f-mouth").src = `characters/parts/${avatar.mouth}.png`;
+  setExpression(el, el.dataset.expr || "normal", true);
+}
+function repaintPlayer() {
+  document.querySelectorAll(".face.player").forEach(paintPlayerFace);
+  $("you-name").textContent = avatar.name;
+  document.querySelectorAll(".player-name").forEach((el) => (el.textContent = avatar.name));
+}
 let session = 0; // 新しい対局ごとに増やす。古い対局の COM の手番や演出を無効にする
 let cellEls = [];
 
@@ -58,8 +137,11 @@ function focusWord() {
   if (matchMedia("(hover: hover)").matches) wordEl.focus({ preventScroll: true });
 }
 
+let currentView = "title";
 function showView(name) {
-  for (const v of ["title", "help", "game"]) $(`${v}-view`).hidden = v !== name;
+  currentView = name;
+  closeScoreDetails();
+  for (const v of ["title", "help", "edit", "rank", "game"]) $(`${v}-view`).hidden = v !== name;
   document.body.classList.toggle("in-game", name === "game"); // 対局中は 1 画面に収める (スクロールしない)
   if (name !== "game") window.scrollTo(0, 0);
 }
@@ -69,7 +151,9 @@ function showView(name) {
 //   2. 高さが足りないときは、部品の間隔とキーの高さを最小まで詰めて、それでも足りない分だけ盤面を狭くする
 //   3. 高さに余裕があるときは、まず部品の間隔を (2人のスコアの間隔 = GAP_MAX まで)、次にキーの高さを広げる
 const GAP_MIN = 4, GAP_MAX = 10; // 部品どうしの縦の間隔
-const KEY_H_MIN = 30, KEY_H_MAX = 62; // キーパッドのキーの高さ (幅は約70pxなので、最大でも少しだけ縦長にとどめる)
+const KEY_H_MIN = 30, KEY_H_MAX = 72; // キーパッドのキーの高さ (幅は約90pxなので、最大でも少しだけ縦長にとどめる)
+const KEY_ASPECT = 1.5; // キーの 幅 / 高さ の上限
+const PAD_ROWS = 4 + 0.92; // キーパッドの高さ = キー4段 + 下の余白 (下フリックの候補ぶん) をキーの高さで数えた値
 function fitBoard() {
   const view = $("game-view");
   if (view.hidden) return;
@@ -88,16 +172,21 @@ function fitBoard() {
   const padGap = 18; // キーの段の間 (6px x 3)
   const base = view.clientHeight - others; // 盤面・キーパッド・部品の間隔に使える高さ
   let gap = GAP_MIN, kh = KEY_H_MIN;
-  let spare = base - (width + gaps * GAP_MIN + (hasPad ? 4 * KEY_H_MIN + padGap : 0)); // 最小の構成で盤面が幅いっぱいのときの余り
+  let spare = base - (width + gaps * GAP_MIN + (hasPad ? PAD_ROWS * KEY_H_MIN + padGap : 0)); // 最小の構成で盤面が幅いっぱいのときの余り
   if (spare > 0) {
     const g = Math.min(GAP_MAX - GAP_MIN, spare / gaps);
     gap += g;
     spare -= g * gaps;
-    if (hasPad) kh += Math.min(KEY_H_MAX - KEY_H_MIN, spare / 4);
+    if (hasPad) kh += Math.min(KEY_H_MAX - KEY_H_MIN, spare / PAD_ROWS);
   }
   view.style.rowGap = `${gap}px`;
   view.style.setProperty("--kh", `${kh}px`);
-  const room = base - gaps * gap - (hasPad ? 4 * kh + padGap : 0);
+  if (hasPad) {
+    // キーの幅は、画面の幅いっぱい (左の余白 + キー3列 + 段の間 6px x 2) まで。ただし、高さの KEY_ASPECT 倍を超えて横長にはしない
+    const fullK = (width - 12) / (KEYPAD_COLS + KEYPAD_RESERVE);
+    pad.style.setProperty("--k", `${Math.min(fullK, kh * KEY_ASPECT)}px`);
+  }
+  const room = base - gaps * gap - (hasPad ? PAD_ROWS * kh + padGap : 0);
   const size = Math.max(120, Math.floor(Math.min(width, room)));
   frame.style.width = frame.style.height = `${size}px`;
 }
@@ -105,16 +194,99 @@ new ResizeObserver(fitBoard).observe($("game-view"));
 addEventListener("resize", fitBoard);
 document.fonts?.ready.then(fitBoard);
 
-function startGame(key) {
-  profile = PROFILES[key];
+// キャラクターの顔 (16x16 のドット絵: 体 + 目 + 口を重ねる)
+// 表情の画像 (勝ち・負け) と涙。ふだんは隠しておき、目と口の代わりに重ねる
+const EXPR_HTML = '<img class="f-expr" alt="" hidden><img class="f-tear" alt="" hidden>';
+const faceHTML = (c) => `<img class="f-body" alt="" src="characters/${c.file}"><img class="f-eyes" alt="" src="characters/parts/${c.eyes}.png"><img class="f-mouth" alt="" src="characters/parts/${c.mouth}.png">${EXPR_HTML}`;
+
+// 顔 el の表情を切り替える。expr: "normal" | "win" | "lose"。負けたときは、泣き顔のキャラクター (tearful) だけ涙が出る
+function setExpression(el, expr, tearful) {
+  if (!el) return;
+  el.dataset.expr = expr;
+  const normal = expr === "normal";
+  const eyes = el.querySelector(".f-eyes"), mouth = el.querySelector(".f-mouth");
+  const face = el.querySelector(".f-expr"), tear = el.querySelector(".f-tear");
+  if (!face || !tear) return;
+  if (eyes) eyes.hidden = !normal;
+  if (mouth) mouth.hidden = !normal;
+  face.hidden = normal;
+  if (!normal) face.src = `characters/${expr}.png`;
+  tear.hidden = !(expr === "lose" && tearful);
+  if (!tear.hidden) tear.src = "characters/tear.png";
+}
+// 対局の結果を、2人の顔に出す (勝った方は win、負けた方は lose、引き分けはふつうの顔)
+function showResultFaces(a, b) {
+  setExpression($("you-face"), a > b ? "win" : a < b ? "lose" : "normal", true);
+  setExpression($("com-face"), a < b ? "win" : a > b ? "lose" : "normal", !!opponent?.tearful);
+}
+
+function setOpponent(c) {
+  opponent = c || null;
+  NAME[C] = c ? c.name : "COM";
+  $("com-name").textContent = NAME[C];
+  $("com-face").innerHTML = c ? faceHTML(c) : "";
+  $("com-face").hidden = !c;
+}
+
+function beginGame(label) {
   SIZE = profile.size;
   buildBoard();
-  $("com-level").textContent = profile.name; // COM の枠のラベルにレベル名を出す
-  showView("game");
+  $("com-level").textContent = label;
+  setOpponent(opponent);
+  navigate("game");
   fitBoard();
   requestAnimationFrame(fitBoard); // フォントの読み込み後など、高さが変わったときのため
   newGame();
 }
+
+function startLevel(key) {
+  mode = "level";
+  profile = PROFILES[key];
+  const [lo, hi] = LEVEL_STRENGTH[key];
+  const pool = roster.filter((c) => c.strength >= lo && c.strength <= hi);
+  opponent = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+  beginGame(profile.name);
+}
+
+function startRank(name, first) {
+  mode = "rank";
+  rankFirst = first; // 順位の高い方が先攻
+  opponent = roster.find((c) => c.name === name);
+  profile = profileFromStrength(opponent.strength);
+  beginGame("RANK MATCH");
+}
+
+// ランクマッチの一覧: 自分の順位の上下 10 人。押すとその相手と対戦する
+function renderRank() {
+  if (!rankBook) return;
+  const { me, rows } = rankBook.nearby();
+  const st = rankBook.state.player;
+  $("rank-summary").textContent = `RANK ${me.rank} / ${roster.length + 1}   RATING ${Math.round(me.rating)}   W ${st.wins}  L ${st.losses}  D ${st.draws}`;
+  const daily = rankBook.state.daily;
+  $("rank-daily").textContent = daily && daily.date === todayString() ? `TODAY: ${daily.matches} COM MATCHES PLAYED` : "";
+  const list = $("rank-list");
+  list.replaceChildren();
+  for (const r of rows) {
+    const li = document.createElement("li");
+    const c = roster.find((x) => x.name === r.name);
+    const arrow = r.change > 0 ? `<i class="up">▲${r.change}</i>` : r.change < 0 ? `<i class="down">▼${-r.change}</i>` : "<i></i>";
+    const face = r.isPlayer ? '<span class="face player"></span>' : `<span class="face">${c ? faceHTML(c) : ""}</span>`;
+    const body = `<span class="rk">${r.rank}</span>${face}<span class="nm">${r.isPlayer ? avatar.name : r.name}</span><span class="rt">${Math.round(r.rating)}</span>${arrow}`;
+    if (r.isPlayer) li.className = "me";
+    li.innerHTML = `<div class="rank-row">${body}</div>`;
+    list.appendChild(li);
+  }
+  list.querySelectorAll(".face.player").forEach(paintPlayerFace);
+  requestAnimationFrame(() => list.querySelector(".me")?.scrollIntoView({ block: "center" }));
+}
+
+// 対局が終わったとき (ランクマッチなら) レーティングに反映する。結果の文を返す
+function recordRank(a, b) {
+  if (mode !== "rank" || !opponent || !rankBook || rankRecorded) return null;
+  rankRecorded = true;
+  return rankBook.record(opponent.name, a === b ? 0.5 : a > b ? 1 : 0); // { oldRank, newRank, delta, rating }
+}
+const rankText = (r) => (r ? `  RANK ${r.oldRank}>${r.newRank} (${r.delta >= 0 ? "+" : ""}${r.delta})` : "");
 
 const toHira = (s) =>
   s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60)).replace(/\s+/g, "");
@@ -130,6 +302,11 @@ function say(text, bad = false) {
 function newGame() {
   session++;
   hidePop();
+  hideVictory();
+  rankRecorded = false;
+  moveCount = 0;
+  setExpression($("you-face"), "normal", true); // 顔をふつうの表情に戻す
+  setExpression($("com-face"), "normal", false);
   letters = Array.from({ length: SIZE }, () => Array(SIZE).fill(""));
   owner = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
   big = Array.from({ length: SIZE }, () => Array(SIZE).fill(false));
@@ -142,16 +319,20 @@ function newGame() {
   wordPts = { [P]: 0, [C]: 0 };
   crossPts = { [P]: 0, [C]: 0 };
   used = new Set();
-  turn = P;
+  turn = mode === "rank" && rankFirst === C ? C : P; // ランクマッチは順位の高い方が先攻
   over = false;
   busy = false;
   passes = 0;
   marks = { [P]: [], [C]: [] };
+  gems = [];
   logEl.innerHTML = "";
   wordEl.value = "";
   render();
-  say("");
-  focusWord();
+  say(mode === "rank" ? (turn === C ? `${NAME[C]} MOVES FIRST` : "YOU MOVE FIRST") : "");
+  if (turn === C) {
+    const id = session;
+    setTimeout(() => id === session && comTurn(), 0);
+  } else focusWord();
 }
 
 // bit を持つマスの連結成分(島)の面積一覧
@@ -230,6 +411,19 @@ function renderMarks() {
       pill.style.height = `${last.offsetTop + last.offsetHeight - first.offsetTop - iy * 2}px`;
       layer.appendChild(pill);
     }
+  }
+  // 交点: 細い金色のひし形をゆっくり回す
+  for (const k of gems) {
+    const el = cellEls[k];
+    if (!el) continue;
+    const s = el.offsetWidth * 0.62; // 回転させた正方形の対角線がマスに収まる大きさ
+    const gem = document.createElement("div");
+    gem.className = "gem-mark";
+    gem.style.left = `${el.offsetLeft + (el.offsetWidth - s) / 2}px`;
+    gem.style.top = `${el.offsetTop + (el.offsetHeight - s) / 2}px`;
+    gem.style.width = gem.style.height = `${s}px`;
+    gem.innerHTML = "<i></i>";
+    layer.appendChild(gem);
   }
 }
 new ResizeObserver(() => cellEls.length && renderMarks()).observe(boardEl);
@@ -327,16 +521,18 @@ function check(raw, r, c, dir, limit = 9) {
   // (単語が変わるのは、この手で新しくできた単語のマスだけなので、touched だけ調べればよい)
   const none = new Map();
   const both = (r, c, tmp) => runAt(r, c, [0, 1], tmp).idx.length >= 2 && runAt(r, c, [1, 0], tmp).idx.length >= 2;
-  let intersections = 0;
+  const interCells = [];
   for (const k of touched) {
     const r = (k / SIZE) | 0, c = k % SIZE;
-    if (both(r, c, cells) && !(letters[r][c] && both(r, c, none))) intersections++;
+    if (both(r, c, cells) && !(letters[r][c] && both(r, c, none))) interCells.push(k);
   }
-  return { ok: true, words, keys, points: words.reduce((s, w) => s + [...w].length, 0), cells, disp, bigIdx, touched, level, overlap, intersections, runs };
+  return { ok: true, words, keys, points: words.reduce((s, w) => s + [...w].length, 0), cells, disp, bigIdx, touched, level, overlap, intersections: interCells.length, interCells, runs };
 }
 
 // 手を盤面に反映し、得点の内訳を返す
 function apply(res, who) {
+  closeScoreDetails();
+  moveCount++;
   const islandBefore = islandPts(owner, who);
   res.cells.forEach((ch, k) => (letters[(k / SIZE) | 0][k % SIZE] = ch));
   res.bigIdx.forEach((k) => (big[(k / SIZE) | 0][k % SIZE] = true));
@@ -346,6 +542,7 @@ function apply(res, who) {
   crossPts[who] += crossing;
   res.keys.forEach((w) => used.add(w));
   marks[who] = res.runs;
+  gems = res.interCells; // 新しい交点にひし形を出す (前の手のひし形は消える)
   const islandGain = islandPts(owner, who) - islandBefore;
   const gain = res.points + crossing + islandGain;
 
@@ -360,10 +557,48 @@ function apply(res, who) {
   return { who, items, total: gain };
 }
 
+// ---------- 音声: 置いた単語を読み上げる ----------
+// voice.js (VoiceSynth: かなをフォルマント合成する音声エンジン) を使う。声は GIRL、音量は半分。
+const VOICE_PRESET = "girl", VOICE_VOLUME = 0.5;
+let audioCtx = null;
+let speaking = null;
+const speechCache = new Map(); // 単語 -> 合成済みの音 (合成は音声1秒あたり約23msかかるので、使い回す)
+
+// 音を出すには、ユーザーの操作 (ボタンを押すなど) の中で AudioContext を作って再開しておく必要がある
+function ensureAudio() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  } catch (e) { return null; }
+}
+
+function speakWord(text) {
+  if (!window.VoiceSynth || !ensureAudio()) return;
+  try {
+    let buf = speechCache.get(text);
+    if (buf === undefined) {
+      const list = VoiceSynth.moraList(text); // 小さい字 (っ ゃ など) や ー もそのまま読める
+      buf = list.length ? VoiceSynth.render(audioCtx, list, VoiceSynth.params(VOICE_PRESET)) : null;
+      speechCache.set(text, buf);
+    }
+    if (!buf) return;
+    try { speaking?.stop(); } catch (e) { /* すでに止まっている */ }
+    const src = audioCtx.createBufferSource();
+    const gain = audioCtx.createGain();
+    gain.gain.value = VOICE_VOLUME;
+    src.buffer = buf;
+    src.connect(gain).connect(audioCtx.destination);
+    src.start();
+    speaking = src;
+  } catch (e) { /* 音が出せなくてもゲームは続ける */ }
+}
+
 // ---------- 得点の演出 (画面中央に大きく、内訳を順に表示) ----------
 
 let popTimer = null;
 let popDone = null;
+let popStart = 0;
 
 function hidePop() {
   clearTimeout(popTimer);
@@ -381,6 +616,7 @@ function showPop(bd) {
     pop.className = "pop " + (bd.who === P ? "p" : "c");
     pop.hidden = false;
     popDone = resolve;
+    popStart = performance.now();
     const add = (html, cls) => {
       const d = document.createElement("div");
       d.className = cls;
@@ -396,13 +632,14 @@ function showPop(bd) {
     const next = () => {
       if (i < steps.length) {
         steps[i++]();
-        popTimer = setTimeout(next, i === steps.length ? POP_HOLD : POP_STEP);
+        // 最後の行 (合計) を出したあとは、表示の開始から POP_MIN_MS 以上たつまで残す
+        popTimer = setTimeout(next, i === steps.length ? Math.max(POP_HOLD, POP_MIN_MS - (performance.now() - popStart)) : POP_STEP);
       } else hidePop();
     };
     next();
   });
 }
-$("pop").addEventListener("click", hidePop); // タップでスキップ
+$("pop").addEventListener("click", () => { if (performance.now() - popStart >= POP_MIN_MS) hidePop(); }); // タップで飛ばせるのは、最低表示時間のあと
 
 // ---------- ターン進行 ----------
 
@@ -416,7 +653,7 @@ function afterMove(who) {
   if (turn === C) {
     if (who !== "pass") say("");
     const id = session;
-    setTimeout(() => id === session && comTurn(), COM_DELAY);
+    setTimeout(() => id === session && comTurn(), 0);
   } else {
     focusWord();
   }
@@ -426,7 +663,10 @@ function finish(reason) {
   over = true;
   render();
   const a = total(P), b = total(C);
-  say(`${reason}. ${a === b ? "DRAW" : a > b ? "YOU WIN" : "COM WINS"} ${a} - ${b}`);
+  const rk = recordRank(a, b);
+  showResultFaces(a, b); // 勝った方は喜び、負けた方は悲しい顔に
+  say(`${reason}. ${a === b ? "DRAW" : a > b ? "YOU WIN" : `${NAME[C]} WINS`} ${a} - ${b}${rankText(rk)}`);
+  if (a > b) showVictory(a, b, rk); // 勝ったときは派手な演出
 }
 
 async function playerMove(word, r, c, dir) {
@@ -434,6 +674,7 @@ async function playerMove(word, r, c, dir) {
   if (!res.ok) return say(res.error, true);
   const id = session;
   const bd = apply(res, P);
+  speakWord(res.words[0]);
   wordEl.value = "";
   say("");
   render();
@@ -445,6 +686,7 @@ async function playerMove(word, r, c, dir) {
 }
 
 function pass(who) {
+  closeScoreDetails();
   passes++;
   const li = document.createElement("li");
   li.className = who === P ? "p" : "c";
@@ -457,11 +699,19 @@ function pass(who) {
 
 // ---------- COM ----------
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function comTurn() {
   const id = session;
+  const t0 = performance.now();
+  await sleep(50); // 手番の枠が光るのを先に描かせてから、探索を始める
   const move = comSearch();
+  const wait = COM_THINK_MS - (performance.now() - t0); // 「考えている」時間を最低 COM_THINK_MS にそろえる
+  if (wait > 0) await sleep(wait);
+  if (id !== session) return;
   if (!move) return pass(C);
   const bd = apply(move.res, C);
+  speakWord(move.res.words[0]);
   render();
   await showPop(bd);
   if (id !== session) return;
@@ -634,7 +884,7 @@ const FLICK_KEYS = [
   ["た", "ちつてと"], ["な", "にぬねの"], ["は", "ひふへほ"],
   ["ま", "みむめも"], ["や", "-ゆ-よ"], ["ら", "りるれろ"],
 ];
-const WA_KEY = ["わ", "をん--"]; // 中央 わ / 左 を / 上 ん / 右・下は割り当てなし ("-")。ー は専用キーがある
+const WA_KEY = ["わ", "をん-ー"]; // 中央 わ / 左 を / 上 ん / 右 (なし: "-") / 下 ー
 const CYCLES = ["あぁ", "いぃ", "うぅゔ", "えぇ", "おぉ", "かが", "きぎ", "くぐ", "けげ", "こご", "さざ", "しじ", "すず", "せぜ", "そぞ",
   "ただ", "ちぢ", "つっづ", "てで", "とど", "はばぱ", "ひびぴ", "ふぶぷ", "へべぺ", "ほぼぽ", "やゃ", "ゆゅ", "よょ", "わゎ"];
 const MAX_INPUT = 12;
@@ -651,12 +901,13 @@ function padTransform() { // 小 ゛ ゜: 直前の字を小さい字/濁音/半
   wordEl.value = chars.join("");
 }
 
+// フリックの候補の大きさは、キーの大きさの CAND_SCALE 倍 (押したキー自体は、ボタンと同じ大きさで出す)
+const CAND_SCALE = 0.88;
+const KEYPAD_COLS = 3, KEYPAD_RESERVE = 0.92; // 左端のキーを左へフリックしたときの候補を出す余白 (キーの幅の倍率)
+
 function buildKeypad() {
   const pad = $("kana-pad");
-  // キー1つの大きさ (--k) を、画面の幅から決める。左端と下端の余白 (フリックの候補を出す場所) もこの大きさで確保する
-  const fit = () => pad.style.setProperty("--k", `${(pad.parentElement.clientWidth - 18) / 5}px`);
-  fit();
-  new ResizeObserver(fit).observe(pad.parentElement);
+  // キー1つの幅 (--k) と高さ (--kh) は fitBoard が画面の大きさから決める
   const dirs = ["c", "l", "u", "r", "d"];
   const flickKey = (label, others) => {
     const list = [label, ...[...others]]; // [中央, 左, 上, 右, 下]。"-" は割り当てなし
@@ -667,17 +918,24 @@ function buildKeypad() {
     btn.innerHTML = `<span class="main">${label}</span>` +
       list.map((ch, i) => (ch === "-" ? "" : `<i class="fg ${dirs[i]}">${ch}</i>`)).join("");
     let st = null;
+    // 指の下にある候補を選ぶ。どの候補の上でもなければ、中心からの向きで選ぶ (小さく動かしただけでも入る)
     const dirOf = (e) => {
+      for (const { d, r } of st.rects) {
+        if (d === 0) continue; // 押したキー自体は、候補ではなく「動かしていない」ときの判定に使う
+        const m = 4; // 候補の縁から少し外れても拾う
+        if (e.clientX >= r.left - m && e.clientX <= r.right + m && e.clientY >= r.top - m && e.clientY <= r.bottom + m) return d;
+      }
       const dx = e.clientX - st.cx, dy = e.clientY - st.cy;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) < st.size * 0.35) return 0;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < st.min * 0.22) return 0;
       return Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 1 : 3) : dy < 0 ? 2 : 4;
     };
     const mark = (d) => btn.querySelectorAll(".fg").forEach((el) => el.classList.toggle("sel", el.classList.contains(dirs[d])));
     btn.addEventListener("pointerdown", (e) => {
       const b = btn.getBoundingClientRect();
-      st = { cx: b.left + b.width / 2, cy: b.top + b.height / 2, size: b.width, d: 0 };
       btn.setPointerCapture(e.pointerId);
       btn.classList.add("down");
+      const rects = [...btn.querySelectorAll(".fg")].map((el) => ({ d: dirs.indexOf(el.className.split(" ")[1]), r: el.getBoundingClientRect() }));
+      st = { cx: b.left + b.width / 2, cy: b.top + b.height / 2, min: Math.min(b.width, b.height), rects, d: 0 };
       mark(0);
     });
     btn.addEventListener("pointermove", (e) => {
@@ -705,15 +963,10 @@ function buildKeypad() {
     return b;
   };
   for (const [label, others] of FLICK_KEYS) pad.append(flickKey(label, others));
-  pad.append(action("小゛゜", "small", padTransform, "small kana or dakuten")); // 下段: 小゛゜ / わ / ー
+  // 下段: 小゛゜ / わ / DEL (ー は わ の下フリック)
+  pad.append(action("小゛゜", "small", padTransform, "small kana or dakuten"));
   pad.append(flickKey(...WA_KEY));
-  pad.append(action("ー", "long", () => padInsert("ー"), "long vowel mark"));
   pad.append(action("DEL", "del", () => { wordEl.value = [...wordEl.value].slice(0, -1).join(""); }, "delete"));
-  // キーは3列に固定して並べる (4列目は DEL だけ。空いたマスにキーが流れ込まないように、位置を明示する)
-  [...pad.children].filter((el) => !el.classList.contains("del")).forEach((el, i) => {
-    el.style.gridColumn = String((i % 3) + 1);
-    el.style.gridRow = String(Math.floor(i / 3) + 1);
-  });
 }
 
 // タッチ端末では、端末のキーボードの代わりに盤面の下のキーパッドで入力する (?keypad=1 で PC でも確認できる)
@@ -724,15 +977,35 @@ if (matchMedia("(hover: none) and (pointer: coarse)").matches || new URLSearchPa
 }
 // スコアをタップすると内訳 (WORD / CROSS / ISLAND) を開閉する
 for (const card of document.querySelectorAll(".sc")) {
-  const toggle = () => card.setAttribute("aria-expanded", card.classList.toggle("open"));
+  const toggle = () => {
+    const opening = !card.classList.contains("open");
+    closeScoreDetails(); // 開くときは、もう一方の内訳を閉じる
+    if (opening) { card.classList.add("open"); card.setAttribute("aria-expanded", "true"); }
+  };
   card.addEventListener("click", toggle);
   card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
 }
 $("pass").addEventListener("click", () => { if (dict && !over && !busy && turn === P) pass(P); });
 
 for (const btn of document.querySelectorAll(".level-choice")) {
-  btn.addEventListener("click", () => dict && startGame(btn.dataset.level));
+  btn.addEventListener("click", () => {
+    if (!dict) return;
+    ensureAudio(); // 音を出せるように、ボタンを押したこの場で用意しておく
+    if (btn.dataset.level === "rank") { renderRank(); navigate("rank"); }
+    else startLevel(btn.dataset.level);
+  });
 }
+// ランクマッチ: 相手は選べない。試合開始を押すと、自分の順位の上下10人から1人が決まる。順位の高い方が先攻
+$("rank-start").addEventListener("click", () => {
+  if (!dict || !rankBook) return;
+  ensureAudio();
+  const { me, rows } = rankBook.nearby();
+  const pool = rows.filter((r) => !r.isPlayer);
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  startRank(pick.name, pick.rank < me.rank ? C : P);
+});
+$("rank-back").addEventListener("click", () => history.back());
+
 // HOW TO PLAY の言語 (日本語が初期値)。選択は覚えておく
 let helpLang = "ja";
 try { helpLang = localStorage.getItem("xwordx-help-lang") === "en" ? "en" : "ja"; } catch (e) { /* 保存できなくても動く */ }
@@ -745,15 +1018,197 @@ function setHelpLang(lang) {
 }
 setHelpLang(helpLang);
 $("help-lang").addEventListener("click", () => setHelpLang(helpLang === "ja" ? "en" : "ja"));
-$("help-open").addEventListener("click", () => { showView("help"); window.scrollTo(0, 0); });
-$("help-back").addEventListener("click", () => showView("title"));
-// MENU: 対局中なら確認してからタイトルへ
-$("menu-back").addEventListener("click", () => {
-  if (!over && logEl.children.length) $("leave-confirm").hidden = false;
-  else showView("title");
+$("help-open").addEventListener("click", () => { navigate("help"); window.scrollTo(0, 0); });
+$("help-back").addEventListener("click", () => history.back());
+
+// ---------- キャラクターエディット ----------
+function buildEditor() {
+  if (!PD) { $("edit-open").hidden = true; return; }
+  const groups = [
+    ["edit-hair", "hair", PD.options.hair], ["edit-eyes", "eyes", PD.options.eyes], ["edit-mouth", "mouth", PD.options.mouth],
+    ["edit-hair-color", "hairColor", PD.palettes.hair], ["edit-cloth-color", "clothColor", PD.palettes.cloth], ["edit-skin-color", "skinColor", PD.palettes.skin],
+  ];
+  const options = [];
+  const refresh = () => {
+    repaintPlayer();
+    for (const { button, key, value, preview } of options) {
+      button.hidden = key === "mouth" && value === "mouth8" && avatar.hair.endsWith("w");
+      const on = avatar[key] === value;
+      button.classList.toggle("selected", on);
+      button.setAttribute("aria-pressed", String(on));
+      if (key === "hair") paintMask(preview, PD.layerMasks.hair[value], avatar.hairColor); // 髪型の見本は、いまの髪の色で
+    }
+  };
+  for (const [id, key, values] of groups) {
+    for (const value of values) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "edit-option";
+      button.setAttribute("aria-label", `${key} ${value}`);
+      let preview = null;
+      if (key.endsWith("Color")) { button.classList.add("color"); button.style.background = value; }
+      else if (key === "hair") { preview = document.createElement("canvas"); preview.width = preview.height = 16; button.append(preview); }
+      else { preview = document.createElement("img"); preview.alt = ""; preview.src = `characters/parts/${value}.png`; button.append(preview); }
+      button.addEventListener("click", () => {
+        if (key === "mouth" && value === "mouth8" && avatar.hair.endsWith("w")) return;
+        avatar[key] = value;
+        if (key === "hair" && value.endsWith("w") && avatar.mouth === "mouth8") avatar.mouth = PD.defaults.mouth;
+        saveAvatar();
+        refresh();
+      });
+      $(id).append(button);
+      options.push({ button, key, value, preview });
+    }
+  }
+  const nameInput = $("edit-name");
+  nameInput.value = avatar.name;
+  nameInput.addEventListener("input", () => {
+    const name = nameInput.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
+    nameInput.value = name;
+    if (!name) return;
+    avatar.name = name;
+    NAME[P] = name;
+    saveAvatar();
+    repaintPlayer();
+  });
+  nameInput.addEventListener("blur", () => { if (!nameInput.value) nameInput.value = avatar.name; });
+  // 表情の見本 (ふつう / 勝ち / 負け)
+  const exprButtons = [...document.querySelectorAll("#edit-expr button")];
+  for (const b of exprButtons) {
+    b.addEventListener("click", () => {
+      setExpression($("edit-face"), b.dataset.expr, true);
+      for (const o of exprButtons) o.classList.toggle("selected", o === b);
+    });
+  }
+  refresh();
+}
+buildEditor();
+repaintPlayer();
+$("edit-open").addEventListener("click", () => navigate("edit"));
+$("edit-back").addEventListener("click", () => history.back());
+
+// ---------- 画面の移動とブラウザの「戻る」 ----------
+// 画面を進めるたびに履歴を積む。ブラウザの「戻る」を押しても、アプリの外に出ずに1つ前の画面へ戻る
+// (対局中に「戻る」を押したときは、抜けてよいかを確認する)
+history.replaceState({ view: "title" }, "");
+function navigate(name) {
+  history.pushState({ view: name }, "");
+  showView(name);
+}
+let leaving = false; // 対局を抜けると確認済み
+// 抜けるときに確認が必要な対局か。ランクマッチは RANK_FREE_MOVES 手を超えたら (抜けると負けになる)、それ以外は 1 手でも打っていたら
+const gameInProgress = () => currentView === "game" && !over && !leaving && (mode === "rank" ? moveCount >= RANK_FREE_MOVES : logEl.children.length > 0);
+function askLeave() {
+  const ranked = mode === "rank";
+  $("leave-text").textContent = ranked ? "負けることになりますがよろしいですか？" : "LEAVE THIS GAME?";
+  $("leave-text").classList.toggle("jp", ranked);
+  $("leave-confirm").hidden = false;
+}
+addEventListener("popstate", (e) => {
+  const target = e.state?.view || "title";
+  if (currentView === "game" && target !== "game" && gameInProgress()) {
+    history.pushState({ view: "game" }, ""); // 画面は動かさずに、確認を出す
+    askLeave();
+    return;
+  }
+  if (currentView === "game") { session++; hidePop(); hideVictory(); $("leave-confirm").hidden = true; }
+  leaving = false;
+  if (target === "rank") renderRank();
+  showView(target);
 });
-$("leave-yes").addEventListener("click", () => { $("leave-confirm").hidden = true; session++; hidePop(); showView("title"); });
+// MENU: 対局中なら確認してから戻る
+$("menu-back").addEventListener("click", () => {
+  if (gameInProgress()) askLeave();
+  else history.back();
+});
+$("leave-yes").addEventListener("click", () => {
+  $("leave-confirm").hidden = true;
+  if (mode === "rank" && gameInProgress()) recordRank(0, 1); // ランクマッチの途中で抜けたら負け
+  leaving = true;
+  history.back();
+});
 $("leave-no").addEventListener("click", () => { $("leave-confirm").hidden = true; focusWord(); });
+
+// ---------- スコアの内訳: 他の操作が行われたら閉じる ----------
+function closeScoreDetails() {
+  for (const card of document.querySelectorAll(".sc.open")) {
+    card.classList.remove("open");
+    card.setAttribute("aria-expanded", "false");
+  }
+}
+document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".sc")) closeScoreDetails(); }, true);
+document.addEventListener("keydown", (e) => { if (!e.target.closest?.(".sc")) closeScoreDetails(); }, true);
+
+// ---------- 勝ったときの演出 ----------
+let victoryStart = 0, victoryTimer = null;
+
+function hideVictory() {
+  clearInterval(victoryTimer);
+  $("victory").hidden = true;
+  $("vic-fx").replaceChildren();
+}
+
+// 短いファンファーレ (WebAudio。音量は音声と同じ半分)
+function fanfare() {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  try {
+    const t0 = ctx.currentTime + 0.05;
+    const master = ctx.createGain();
+    master.gain.value = VOICE_VOLUME * 0.5;
+    master.connect(ctx.destination);
+    const note = (hz, at, dur, type = "square") => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type;
+      o.frequency.value = hz;
+      g.gain.setValueAtTime(0.0001, t0 + at);
+      g.gain.exponentialRampToValueAtTime(0.5, t0 + at + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+      o.connect(g).connect(master);
+      o.start(t0 + at);
+      o.stop(t0 + at + dur + 0.05);
+    };
+    [[523.25, 0], [659.25, 0.12], [783.99, 0.24], [1046.5, 0.36], [783.99, 0.6], [1046.5, 0.72]].forEach(([hz, at]) => note(hz, at, 0.16));
+    [523.25, 659.25, 783.99, 1046.5].forEach((hz) => note(hz, 0.9, 1.0, "triangle")); // 最後の和音
+  } catch (e) { /* 音が出せなくても演出は出す */ }
+}
+
+// 紙吹雪と花火
+function showVictory(a, b, rk) {
+  const v = $("victory"), fx = $("vic-fx");
+  $("vic-score").textContent = `${a} - ${b}`;
+  $("vic-rank").textContent = rk ? `RANK ${rk.oldRank} > ${rk.newRank}    ${rk.delta >= 0 ? "+" : ""}${rk.delta}` : "";
+  setExpression($("vic-face"), "win", true);
+  fx.replaceChildren();
+  const rand = (lo, hi) => lo + Math.random() * (hi - lo);
+  const colors = ["#e8e070", "#8db8ff", "#ff8da1", "#cfa6ff", "#57ffb6", "#ffffff"];
+  for (let i = 0; i < 90; i++) { // 紙吹雪
+    const c = document.createElement("i");
+    c.className = "conf";
+    c.style.cssText = `left:${rand(0, 100)}%;width:${rand(6, 12)}px;height:${rand(10, 20)}px;background:${colors[i % colors.length]};` +
+      `animation-delay:${rand(0, 2.5)}s;animation-duration:${rand(2.6, 5)}s;--r:${rand(-720, 720)}deg;--x:${rand(-60, 60)}px`;
+    fx.appendChild(c);
+  }
+  const burst = () => { // 花火: 中心から放射状に飛び散る
+    const cx = rand(15, 85), cy = rand(12, 55), col = colors[Math.floor(Math.random() * colors.length)];
+    const n = 16;
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement("i");
+      s.className = "spark";
+      const ang = (i / n) * Math.PI * 2, dist = rand(60, 120);
+      s.style.cssText = `left:${cx}%;top:${cy}%;background:${col};--dx:${Math.cos(ang) * dist}px;--dy:${Math.sin(ang) * dist}px`;
+      fx.appendChild(s);
+      setTimeout(() => s.remove(), 1400);
+    }
+  };
+  burst();
+  clearInterval(victoryTimer);
+  victoryTimer = setInterval(burst, 550);
+  victoryStart = performance.now();
+  v.hidden = false;
+  fanfare();
+}
+$("victory").addEventListener("click", () => { if (performance.now() - victoryStart > 1200) hideVictory(); });
 
 const loadEl = $("load-status");
 Dict.load("data/nouns.bin")
@@ -785,6 +1240,9 @@ if (new URLSearchParams(location.search).has("debug")) {
       render();
       return { ok: true, shown: letters.map((row, rr) => row.map((ch, cc) => (ch ? shown(rr, cc) : "・")).join("")) };
     },
+    victory: (a, b, rk) => showVictory(a, b, rk), // 勝利演出を確かめる
+    // 得点を直接決めて対局を終わらせる (勝ち・負けの流れを確かめる)
+    endWith(p, c) { wordPts[P] = p; wordPts[C] = c; finish("TEST"); },
     comSearch: () => { const m = comSearch(); return m && { words: m.res.words, points: m.res.points, level: m.res.level }; },
     check: (raw, r, c, dir) => {
       const res = check(raw, r, c, dir);
