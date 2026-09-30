@@ -3,6 +3,7 @@ import { RankBook, todayString } from "./rank.js";
 
 let SIZE = 11; // 盤面の大きさ。レベルごとに変わる (PROFILES.size)
 const MIN_LEN = 2;
+const GEM_SIZE = 0.95; // 交点のひし形の大きさ (マスに対する、ひし形の対角線の長さ)
 const ISLAND_STEP = 10; // 島の得点: 島が ISLAND_STEP マス増えるごとに ISLAND_BONUS 点
 const ISLAND_BONUS = 10;
 const CROSSING_BONUS = 5; // 新しくできた交点 (縦の単語と横の単語の両方に入るマス) 1つにつきの得点。誰の文字かは関係なく、その手を打った側に入る
@@ -292,9 +293,22 @@ const toHira = (s) =>
   s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60)).replace(/\s+/g, "");
 const currentWord = () => toHira(wordEl.value);
 
-function say(text, bad = false) {
+function say(text, bad = false, good = false) {
   msgEl.textContent = text;
   msgEl.classList.toggle("bad", bad);
+  msgEl.classList.toggle("ok", good);
+}
+
+// 入力中の単語が辞書にあるかを、リアルタイムでステータス (一番下のメッセージ) に出す
+function updateWordStatus() {
+  if (!dict || over || busy || turn !== P) return;
+  const w = currentWord();
+  if (!w) return say("");
+  if ([...w].length < MIN_LEN) return say(`${MIN_LEN}+ LETTERS: ${w}`);
+  const lv = dict.level(w);
+  if (lv < 0) return say(`NOT A WORD: ${w}`, true);
+  if (used.has(canon(w))) return say(`ALREADY USED: ${w}`, true);
+  say(`OK: ${w}  LV ${lv}`, false, true);
 }
 
 // ---------- 盤面・得点 ----------
@@ -335,18 +349,18 @@ function newGame() {
   } else focusWord();
 }
 
-// bit を持つマスの連結成分(島)の面積一覧
-function islands(own, bit) {
+// bit を持つマスの連結成分 (島)。島ごとのマス index の配列の一覧
+function islandGroups(own, bit) {
   const seen = new Set();
-  const sizes = [];
+  const groups = [];
   for (let s = 0; s < SIZE * SIZE; s++) {
     if (seen.has(s) || !(own[(s / SIZE) | 0][s % SIZE] & bit)) continue;
-    let n = 0;
+    const cells = [];
     const st = [s];
     seen.add(s);
     while (st.length) {
       const k = st.pop();
-      n++;
+      cells.push(k);
       const r = (k / SIZE) | 0, c = k % SIZE;
       for (const [rr, cc] of [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]) {
         if (rr < 0 || cc < 0 || rr >= SIZE || cc >= SIZE) continue;
@@ -354,10 +368,11 @@ function islands(own, bit) {
         if (!seen.has(j) && own[rr][cc] & bit) { seen.add(j); st.push(j); }
       }
     }
-    sizes.push(n);
+    groups.push(cells);
   }
-  return sizes;
+  return groups;
 }
+const islands = (own, bit) => islandGroups(own, bit).map((cells) => cells.length); // 島の面積一覧
 const islandPts = (own, bit) => islands(own, bit).reduce((s, n) => s + Math.floor(n / ISLAND_STEP) * ISLAND_BONUS, 0);
 const total = (bit) => wordPts[bit] + crossPts[bit] + islandPts(owner, bit);
 
@@ -381,7 +396,7 @@ function render(preview) {
     }
   }
   for (const bit of [P, C]) {
-    $(bit === P ? "sp" : "sc").textContent = total(bit);
+    $(bit === P ? "sp" : "sc").textContent = scoreHold ? scoreHold[bit] : total(bit); // 演出中は、点が数えられるのに合わせて増やす
     $(bit === P ? "dp" : "dc").textContent = [`WORD ${wordPts[bit]}`, `CROSS ${crossPts[bit]}`, `ISLAND ${islandPts(owner, bit)}`].join("\n");
   }
   renderMarks();
@@ -394,6 +409,7 @@ function render(preview) {
 function renderMarks() {
   const layer = $("marks");
   layer.replaceChildren();
+  if (fxHold) return; // 演出中は出さない (演出が終わってから出す)
   for (const bit of [P, C]) {
     for (const run of marks[bit]) {
       const first = cellEls[run[0]], last = cellEls[run[run.length - 1]];
@@ -416,7 +432,7 @@ function renderMarks() {
   for (const k of gems) {
     const el = cellEls[k];
     if (!el) continue;
-    const s = el.offsetWidth * 0.62; // 回転させた正方形の対角線がマスに収まる大きさ
+    const s = el.offsetWidth * GEM_SIZE / Math.SQRT2; // 回転させた正方形の対角線が、マスの GEM_SIZE 倍になる辺の長さ
     const gem = document.createElement("div");
     gem.className = "gem-mark";
     gem.style.left = `${el.offsetLeft + (el.offsetWidth - s) / 2}px`;
@@ -533,6 +549,8 @@ function check(raw, r, c, dir, limit = 9) {
 function apply(res, who) {
   closeScoreDetails();
   moveCount++;
+  scoreHold = { [P]: total(P), [C]: total(C) }; // 手を置く前のスコア (演出の間はこの値から数え上げる)
+  fxHold = true; // 演出が終わるまで、カプセルとひし形は出さない
   const islandBefore = islandPts(owner, who);
   res.cells.forEach((ch, k) => (letters[(k / SIZE) | 0][k % SIZE] = ch));
   res.bigIdx.forEach((k) => (big[(k / SIZE) | 0][k % SIZE] = true));
@@ -554,7 +572,9 @@ function apply(res, who) {
   const items = res.words.map((w, i) => ({ tag: i === 0 ? "WORD" : "TOUCH", text: w, pts: [...w].length }));
   if (crossing) items.push({ tag: "CROSSING", text: `x${res.intersections}`, pts: crossing });
   if (islandGain > 0) items.push({ tag: "ISLAND", text: "", pts: islandGain });
-  return { who, items, total: gain };
+  // 島の得点が増えたときは、この手に関わった島 (10マス以上) を囲んで光らせる
+  const island = islandGain > 0 ? islandGroups(owner, who).filter((cells) => cells.length >= ISLAND_STEP && cells.some((k) => res.touched.has(k))) : [];
+  return { who, items, total: gain, runs: res.runs, inter: res.interCells, island, islandGain };
 }
 
 // ---------- 音声: 置いた単語を読み上げる ----------
@@ -594,52 +614,227 @@ function speakWord(text) {
   } catch (e) { /* 音が出せなくてもゲームは続ける */ }
 }
 
-// ---------- 得点の演出 (画面中央に大きく、内訳を順に表示) ----------
+// ---------- 得点の演出 ----------
+// 手を置いたあとの得点を、1つずつ光らせて数え上げる:
+//   1. 単語 (と、隣り合ってできた単語): 文字を1つずつ光らせて +1 ずつ
+//   2. 交点: 1か所ずつ大きく光らせて +5 ずつ (6か所あれば6回)
+//   3. 島: 島を囲んで光らせて、島の得点を加える
+//   4. 合計を大きく出す
+// 結果は最低 POP_MIN_MS の間は出し続け、それまではタップで飛ばせない。
+const FX_SCALE = FAST ? 0.05 : 1; // 動作確認用 (?fast) では、待ち時間を縮める
+let fxHold = false; // 演出中: カプセルとひし形は、演出が終わってから出す
+let scoreHold = null; // 演出中のスコア欄の値 (点が数えられるのに合わせて増やす)
+let popTimer = null, popWake = null, popDone = null, popStart = 0, seqId = 0, skipped = false;
+const fxLayer = document.createElement("div"); // 盤面の上に重ねる演出の層
+fxLayer.id = "fx";
+boardEl.parentElement.append(fxLayer);
 
-let popTimer = null;
-let popDone = null;
-let popStart = 0;
+const sleepFx = (ms) => new Promise((r) => { popWake = r; popTimer = setTimeout(r, ms * FX_SCALE); });
+const escHtml = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 
-function hidePop() {
+function cellBox(k) {
+  const el = cellEls[k];
+  return { l: el.offsetLeft, t: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight, x: el.offsetLeft + el.offsetWidth / 2, y: el.offsetTop + el.offsetHeight / 2 };
+}
+function fxEl(cls, x, y, html, css = "") {
+  const d = document.createElement("div");
+  d.className = cls;
+  d.style.cssText = `left:${x}px;top:${y}px;${css}`;
+  if (html != null) d.innerHTML = html;
+  fxLayer.appendChild(d);
+  return d;
+}
+function fxSparks(x, y, color, n, lo, hi) { // 放射状に飛び散る火花
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2 + Math.random() * 0.4, dist = lo + Math.random() * (hi - lo);
+    const s = fxEl("fx-spark", x, y, null, `background:${color};color:${color};--dx:${Math.cos(ang) * dist}px;--dy:${Math.sin(ang) * dist}px`);
+    setTimeout(() => s.remove(), 1000);
+  }
+}
+function fxRing(x, y, color, size, delay = 0) { // 広がる輪
+  const r = fxEl("fx-ring", x, y, null, `width:${size}px;height:${size}px;border-color:${color};animation-delay:${delay}ms`);
+  setTimeout(() => r.remove(), 900 + delay);
+}
+function fxFloat(x, y, text, cls, color) { // 浮かび上がる数字
+  const f = fxEl("fx-float " + cls, x, y, text, `color:${color}`);
+  setTimeout(() => f.remove(), 1300);
+}
+function flashCell(k) {
+  const el = cellEls[k];
+  el.classList.remove("fx-flash");
+  void el.offsetWidth; // アニメーションを最初からやり直す
+  el.classList.add("fx-flash");
+}
+// 効果音 (短い電子音。音量は音声と同じく半分)
+function blip(hz, dur = 0.09, type = "square", vol = 0.25) {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  try {
+    const o = ctx.createOscillator(), gn = ctx.createGain(), t = ctx.currentTime;
+    o.type = type;
+    o.frequency.value = hz;
+    gn.gain.setValueAtTime(vol * VOICE_VOLUME, t);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(gn).connect(ctx.destination);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  } catch (e) { /* 音が出せなくても演出は出す */ }
+}
+
+// 島を囲んで光らせる: 島の外側に面した辺に、光る線を引く
+function fxIsland(cells, color) {
+  const set = new Set(cells);
+  const outside = (r, c) => !(r >= 0 && c >= 0 && r < SIZE && c < SIZE && set.has(r * SIZE + c));
+  let sx = 0, sy = 0;
+  for (const k of cells) {
+    const r = (k / SIZE) | 0, c = k % SIZE, b = cellBox(k);
+    const d = fxEl("fx-island", b.l, b.t, null, `width:${b.w}px;height:${b.h}px;--c:${color}`);
+    if (outside(r - 1, c)) d.classList.add("t");
+    if (outside(r + 1, c)) d.classList.add("b");
+    if (outside(r, c - 1)) d.classList.add("l");
+    if (outside(r, c + 1)) d.classList.add("r");
+    sx += b.x; sy += b.y;
+  }
+  return { x: sx / cells.length, y: sy / cells.length };
+}
+
+async function runSequence(bd, id) {
+  const alive = () => id === seqId && !skipped;
+  const col = bd.who === P ? "#8db8ff" : "#ff8da1";
+  let tally = 0;
+  const tallyEl = fxEl("fx-tally", 0, 0);
+  const setTally = (tag, text) => {
+    tallyEl.innerHTML = `<span class="tag">${escHtml(tag)}</span><span class="jp">${escHtml(text)}</span><b>+${tally}</b>`;
+    tallyEl.classList.remove("bump");
+    void tallyEl.offsetWidth;
+    tallyEl.classList.add("bump");
+  };
+  const add = (n) => { // 点を数える: 合計とスコア欄に加える
+    tally += n;
+    if (scoreHold) {
+      scoreHold[bd.who] += n;
+      const el = $(bd.who === P ? "sp" : "sc");
+      el.textContent = scoreHold[bd.who];
+      el.classList.remove("bump");
+      void el.offsetWidth;
+      el.classList.add("bump");
+    }
+  };
+
+  // 1) 単語: 文字を1つずつ光らせて +1 ずつ。隣り合ってできた単語も、同じように
+  for (let w = 0; w < bd.runs.length; w++) {
+    const tag = w === 0 ? "WORD" : "TOUCH", text = bd.items[w].text;
+    let n = 0;
+    for (const k of bd.runs[w]) {
+      if (!alive()) return;
+      n++;
+      const b = cellBox(k);
+      flashCell(k);
+      fxRing(b.x, b.y, col, b.w);
+      fxSparks(b.x, b.y, col, 8, b.w * 0.6, b.w * 1.3);
+      fxFloat(b.x, b.y, "+1", "small", col);
+      blip(520 + n * 48, 0.08);
+      add(1);
+      setTally(tag, text);
+      await sleepFx(240);
+    }
+    await sleepFx(220);
+  }
+
+  // 2) 交点: 1か所ずつ大きく光らせて +5 ずつ。6か所あれば6回繰り返す
+  for (let i = 0; i < bd.inter.length; i++) {
+    if (!alive()) return;
+    const k = bd.inter[i], b = cellBox(k);
+    flashCell(k);
+    boardEl.parentElement.classList.remove("fx-shake");
+    void boardEl.offsetWidth;
+    boardEl.parentElement.classList.add("fx-shake");
+    const side = b.w * GEM_SIZE / Math.SQRT2; // 回転させた正方形の対角線が、マスの GEM_SIZE 倍になる辺の長さ
+    const d = fxEl("fx-diamond", b.x, b.y, null, `width:${side}px;height:${side}px`);
+    setTimeout(() => d.remove(), 900);
+    fxRing(b.x, b.y, "#ffe27a", b.w, 0);
+    fxRing(b.x, b.y, "#ffffff", b.w, 120);
+    fxRing(b.x, b.y, "#ffe27a", b.w, 240);
+    fxSparks(b.x, b.y, "#ffe27a", 18, b.w * 1.0, b.w * 2.4);
+    fxSparks(b.x, b.y, "#ffffff", 10, b.w * 0.6, b.w * 1.6);
+    fxFloat(b.x, b.y, `+${CROSSING_BONUS}`, "big", "#ffe27a");
+    blip(880 + i * 110, 0.1, "square", 0.3);
+    setTimeout(() => blip(1320 + i * 110, 0.14, "triangle", 0.3), 90);
+    add(CROSSING_BONUS);
+    setTally(`CROSSING ${i + 1}/${bd.inter.length}`, "");
+    await sleepFx(640);
+  }
+
+  // 3) 島: 島を囲んで光らせて、島の得点を加える
+  if (bd.island.length) {
+    if (!alive()) return;
+    let cx = 0, cy = 0;
+    for (const cells of bd.island) { const c = fxIsland(cells, "#57ffb6"); cx += c.x; cy += c.y; }
+    cx /= bd.island.length; cy /= bd.island.length;
+    const size = cellBox(0).w;
+    fxRing(cx, cy, "#57ffb6", size * 2);
+    fxRing(cx, cy, "#ffffff", size * 2, 150);
+    fxRing(cx, cy, "#57ffb6", size * 2, 300);
+    fxSparks(cx, cy, "#57ffb6", 26, size * 1.5, size * 4);
+    fxSparks(cx, cy, "#ffffff", 14, size * 1, size * 3);
+    fxFloat(cx, cy, `+${bd.islandGain}`, "huge", "#57ffb6");
+    [523, 659, 784, 1047].forEach((hz, j) => setTimeout(() => blip(hz, 0.16, "triangle", 0.3), j * 90));
+    add(bd.islandGain);
+    setTally("ISLAND", "");
+    await sleepFx(1300);
+  }
+
+  // 4) 合計を大きく出して、最低表示時間まで残す
+  if (!alive()) return;
+  const box = boardEl.parentElement;
+  fxEl("fx-total", box.clientWidth / 2, box.clientHeight / 2, `<span class="tag">${escHtml(NAME[bd.who])}</span><b>+${bd.total}</b>`, `color:${col}`);
+  blip(1047, 0.2, "triangle", 0.3);
+  const rest = Math.max(POP_HOLD, POP_MIN_MS - (performance.now() - popStart));
+  await sleepFx(rest / FX_SCALE);
+}
+
+function clearFx() {
   clearTimeout(popTimer);
-  $("pop").hidden = true;
+  fxHold = false;
+  scoreHold = null;
+  fxLayer.classList.remove("busy");
+  fxLayer.replaceChildren();
+  boardEl.parentElement.classList.remove("fx-shake");
+  for (const el of cellEls) el.classList.remove("fx-flash");
+}
+function hidePop() { // 演出を止める (新しい対局・画面の移動のとき)
+  seqId++;
+  clearFx();
   const done = popDone;
   popDone = null;
   if (done) done();
 }
-
 function showPop(bd) {
+  const id = ++seqId;
   return new Promise((resolve) => {
-    const pop = $("pop"), card = $("pop-card");
-    clearTimeout(popTimer);
-    card.innerHTML = "";
-    pop.className = "pop " + (bd.who === P ? "p" : "c");
-    pop.hidden = false;
     popDone = resolve;
     popStart = performance.now();
-    const add = (html, cls) => {
-      const d = document.createElement("div");
-      d.className = cls;
-      d.innerHTML = html;
-      card.appendChild(d);
-    };
-    const esc = (t) => t.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
-    const steps = [
-      ...bd.items.map((it) => () => add(`<span class="tag">${it.tag}</span><span class="jp">${esc(it.text)}</span><b>+${it.pts}</b>`, "pop-line")),
-      () => add(`<span class="tag">${NAME[bd.who]}</span><b>+${bd.total}</b>`, "pop-total"),
-    ];
-    let i = 0;
-    const next = () => {
-      if (i < steps.length) {
-        steps[i++]();
-        // 最後の行 (合計) を出したあとは、表示の開始から POP_MIN_MS 以上たつまで残す
-        popTimer = setTimeout(next, i === steps.length ? Math.max(POP_HOLD, POP_MIN_MS - (performance.now() - popStart)) : POP_STEP);
-      } else hidePop();
-    };
-    next();
+    skipped = false;
+    fxHold = true;
+    fxLayer.replaceChildren();
+    fxLayer.classList.add("busy");
+    runSequence(bd, id).catch(() => { /* 演出が失敗しても、ゲームは続ける */ }).then(() => {
+      if (id !== seqId) return; // 途中で止められた
+      clearFx();
+      render(); // スコア欄の最終値と、カプセル・ひし形を出す
+      const done = popDone;
+      popDone = null;
+      if (done) done();
+    });
   });
 }
-$("pop").addEventListener("click", () => { if (performance.now() - popStart >= POP_MIN_MS) hidePop(); }); // タップで飛ばせるのは、最低表示時間のあと
+// 演出の層をタップして飛ばせるのは、最低表示時間のあと
+fxLayer.addEventListener("click", () => {
+  if (performance.now() - popStart < POP_MIN_MS) return;
+  skipped = true;
+  clearTimeout(popTimer);
+  popWake?.();
+});
 
 // ---------- ターン進行 ----------
 
@@ -876,6 +1071,7 @@ boardEl.addEventListener("pointerup", (e) => {
 boardEl.addEventListener("pointercancel", () => { drag = null; render(); });
 
 wordEl.addEventListener("change", () => (wordEl.value = currentWord()));
+wordEl.addEventListener("input", updateWordStatus);
 
 // ---------- スマホ用: 盤面の下に日本語のフリック入力を再現 ----------
 // 各キー: [中央(タップ), 左, 上, 右, 下] の順 (iOS のフリック入力と同じ)
@@ -891,6 +1087,7 @@ const MAX_INPUT = 12;
 
 function padInsert(ch) {
   if ([...wordEl.value].length < MAX_INPUT) wordEl.value += ch;
+  updateWordStatus();
 }
 function padTransform() { // 小 ゛ ゜: 直前の字を小さい字/濁音/半濁音に切り替える
   const chars = [...wordEl.value];
@@ -899,6 +1096,7 @@ function padTransform() { // 小 ゛ ゜: 直前の字を小さい字/濁音/半
   if (!cyc) return;
   chars.push(cyc[(cyc.indexOf(last) + 1) % cyc.length]);
   wordEl.value = chars.join("");
+  updateWordStatus();
 }
 
 // フリックの候補の大きさは、キーの大きさの CAND_SCALE 倍 (押したキー自体は、ボタンと同じ大きさで出す)
@@ -966,7 +1164,7 @@ function buildKeypad() {
   // 下段: 小゛゜ / わ / DEL (ー は わ の下フリック)
   pad.append(action("小゛゜", "small", padTransform, "small kana or dakuten"));
   pad.append(flickKey(...WA_KEY));
-  pad.append(action("DEL", "del", () => { wordEl.value = [...wordEl.value].slice(0, -1).join(""); }, "delete"));
+  pad.append(action("DEL", "del", () => { wordEl.value = [...wordEl.value].slice(0, -1).join(""); updateWordStatus(); }, "delete"));
 }
 
 // タッチ端末では、端末のキーボードの代わりに盤面の下のキーパッドで入力する (?keypad=1 で PC でも確認できる)
@@ -1237,6 +1435,8 @@ if (new URLSearchParams(location.search).has("debug")) {
       const res = check(raw, r, c, dir);
       if (!res.ok) return { ok: false, error: res.error };
       apply(res, P);
+      scoreHold = null;
+      fxHold = false;
       render();
       return { ok: true, shown: letters.map((row, rr) => row.map((ch, cc) => (ch ? shown(rr, cc) : "・")).join("")) };
     },
