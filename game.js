@@ -64,34 +64,41 @@ function showView(name) {
   if (name !== "game") window.scrollTo(0, 0);
 }
 
-// 盤面の枠の大きさ: できるだけ画面の幅いっぱいにする。高さが足りないときは、まずキーパッドのキーの高さを縮め、
-// それでも足りない分だけ盤面を狭くする (画面からはみ出さない。幅いっぱいで収まるときは、下に余白が空く)
-const KEY_H_MAX = 50, KEY_H_MIN = 30;
+// 画面の縦方向の割り当て。優先順位:
+//   1. 盤面はできるだけ画面の幅いっぱい (正方形)
+//   2. 高さが足りないときは、部品の間隔とキーの高さを最小まで詰めて、それでも足りない分だけ盤面を狭くする
+//   3. 高さに余裕があるときは、まず部品の間隔を (2人のスコアの間隔 = GAP_MAX まで)、次にキーの高さを広げる
+const GAP_MIN = 4, GAP_MAX = 10; // 部品どうしの縦の間隔
+const KEY_H_MIN = 30, KEY_H_MAX = 62; // キーパッドのキーの高さ (幅は約70pxなので、最大でも少しだけ縦長にとどめる)
 function fitBoard() {
   const view = $("game-view");
   if (view.hidden) return;
   const frame = view.querySelector(".board-frame");
   const pad = $("kana-pad");
-  const gap = parseFloat(getComputedStyle(view).rowGap) || 0;
-  let others = 0, count = 0, hasPad = false;
+  let others = 0, gaps = 0, hasPad = false;
   for (const el of view.children) {
     if (el === frame || el.hidden) continue;
     const cs = getComputedStyle(el);
     if (cs.display === "none" || cs.position === "fixed" || cs.position === "absolute") continue;
-    if (el === pad) { hasPad = true; count++; continue; } // キーパッドの高さは下で計算する
+    gaps++; // 盤面以外の部品の数 = 部品どうしの間隔の数
+    if (el === pad) { hasPad = true; continue; } // キーパッドの高さは下で決める
     others += el.getBoundingClientRect().height + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
-    count++;
   }
-  const avail = view.clientHeight - others - gap * count; // 盤面とキーパッドに使える高さ
-  let room = avail;
-  if (hasPad) {
-    // キーパッドの高さ = キー4段 + 段の間 (6px x 3)
-    const padGap = 18;
-    const kh = Math.max(KEY_H_MIN, Math.min(KEY_H_MAX, (avail - view.clientWidth - padGap) / 4));
-    view.style.setProperty("--kh", `${kh}px`);
-    room = avail - (4 * kh + padGap);
+  const width = view.clientWidth;
+  const padGap = 18; // キーの段の間 (6px x 3)
+  const base = view.clientHeight - others; // 盤面・キーパッド・部品の間隔に使える高さ
+  let gap = GAP_MIN, kh = KEY_H_MIN;
+  let spare = base - (width + gaps * GAP_MIN + (hasPad ? 4 * KEY_H_MIN + padGap : 0)); // 最小の構成で盤面が幅いっぱいのときの余り
+  if (spare > 0) {
+    const g = Math.min(GAP_MAX - GAP_MIN, spare / gaps);
+    gap += g;
+    spare -= g * gaps;
+    if (hasPad) kh += Math.min(KEY_H_MAX - KEY_H_MIN, spare / 4);
   }
-  const size = Math.max(120, Math.floor(Math.min(view.clientWidth, room)));
+  view.style.rowGap = `${gap}px`;
+  view.style.setProperty("--kh", `${kh}px`);
+  const room = base - gaps * gap - (hasPad ? 4 * kh + padGap : 0);
+  const size = Math.max(120, Math.floor(Math.min(width, room)));
   frame.style.width = frame.style.height = `${size}px`;
 }
 new ResizeObserver(fitBoard).observe($("game-view"));
