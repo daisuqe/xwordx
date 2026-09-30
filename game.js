@@ -60,15 +60,40 @@ function focusWord() {
 
 function showView(name) {
   for (const v of ["title", "help", "game"]) $(`${v}-view`).hidden = v !== name;
+  document.body.classList.toggle("in-game", name === "game"); // 対局中は 1 画面に収める (スクロールしない)
   if (name !== "game") window.scrollTo(0, 0);
 }
+
+// 盤面の枠の大きさ: 幅と「画面の残りの高さ」の小さい方の正方形にする (画面からはみ出さない。幅で決まるときは下に余白が空く)
+function fitBoard() {
+  const view = $("game-view");
+  if (view.hidden) return;
+  const frame = view.querySelector(".board-frame");
+  const gap = parseFloat(getComputedStyle(view).rowGap) || 0;
+  let others = 0, count = 0;
+  for (const el of view.children) {
+    if (el === frame || el.hidden) continue;
+    const cs = getComputedStyle(el);
+    if (cs.display === "none" || cs.position === "fixed" || cs.position === "absolute") continue;
+    others += el.getBoundingClientRect().height + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0); // 上下の余白も数える
+    count++;
+  }
+  const room = view.clientHeight - others - gap * count;
+  const size = Math.max(120, Math.floor(Math.min(view.clientWidth, room)));
+  frame.style.width = frame.style.height = `${size}px`;
+}
+new ResizeObserver(fitBoard).observe($("game-view"));
+addEventListener("resize", fitBoard);
+document.fonts?.ready.then(fitBoard);
 
 function startGame(key) {
   profile = PROFILES[key];
   SIZE = profile.size;
   buildBoard();
-  $("com-level").textContent = profile.name;
+  $("com-level").textContent = profile.name; // COM の枠のラベルにレベル名を出す
   showView("game");
+  fitBoard();
+  requestAnimationFrame(fitBoard); // フォントの読み込み後など、高さが変わったときのため
   newGame();
 }
 
@@ -609,6 +634,10 @@ function padTransform() { // 小 ゛ ゜: 直前の字を小さい字/濁音/半
 
 function buildKeypad() {
   const pad = $("kana-pad");
+  // キー1つの大きさ (--k) を、画面の幅から決める。左端と下端の余白 (フリックの候補を出す場所) もこの大きさで確保する
+  const fit = () => pad.style.setProperty("--k", `${(pad.parentElement.clientWidth - 18) / 4.8}px`);
+  fit();
+  new ResizeObserver(fit).observe(pad.parentElement);
   const dirs = ["c", "l", "u", "r", "d"];
   const flickKey = (label, others) => {
     const list = [label, ...[...others]]; // [中央, 左, 上, 右, 下]。"-" は割り当てなし
