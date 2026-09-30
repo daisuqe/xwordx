@@ -654,7 +654,7 @@ function padTransform() { // 小 ゛ ゜: 直前の字を小さい字/濁音/半
 function buildKeypad() {
   const pad = $("kana-pad");
   // キー1つの大きさ (--k) を、画面の幅から決める。左端と下端の余白 (フリックの候補を出す場所) もこの大きさで確保する
-  const fit = () => pad.style.setProperty("--k", `${(pad.parentElement.clientWidth - 18) / 4.8}px`);
+  const fit = () => pad.style.setProperty("--k", `${(pad.parentElement.clientWidth - 18) / 5}px`);
   fit();
   new ResizeObserver(fit).observe(pad.parentElement);
   const dirs = ["c", "l", "u", "r", "d"];
@@ -709,7 +709,11 @@ function buildKeypad() {
   pad.append(flickKey(...WA_KEY));
   pad.append(action("ー", "long", () => padInsert("ー"), "long vowel mark"));
   pad.append(action("DEL", "del", () => { wordEl.value = [...wordEl.value].slice(0, -1).join(""); }, "delete"));
-  pad.append(action("CLR", "clr", () => { wordEl.value = ""; }, "clear"));
+  // キーは3列に固定して並べる (4列目は DEL だけ。空いたマスにキーが流れ込まないように、位置を明示する)
+  [...pad.children].filter((el) => !el.classList.contains("del")).forEach((el, i) => {
+    el.style.gridColumn = String((i % 3) + 1);
+    el.style.gridRow = String(Math.floor(i / 3) + 1);
+  });
 }
 
 // タッチ端末では、端末のキーボードの代わりに盤面の下のキーパッドで入力する (?keypad=1 で PC でも確認できる)

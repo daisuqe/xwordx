@@ -161,8 +161,8 @@ body:not(.ready) .level-choice { opacity: .4; pointer-events: none; }
 /* スマホ用: 盤面の下の日本語フリック入力 */
 .kana-pad { display: none; }
 body.keypad .kana-pad {
-  /* キー3列 + 操作キー1列。左端のキーを左へフリックしたときの候補を出す余白を、左に1キーぶん取る */
-  display: grid; grid-template-columns: repeat(3, var(--k, 64px)) calc(var(--k, 64px) * .8); grid-auto-rows: var(--kh, 48px); gap: 6px;
+  /* キー3列 + DEL の列 (DEL は他のキーと同じ大きさで、一番上)。左端のキーを左へフリックしたときの候補を出す余白を、左に1キーぶん取る */
+  display: grid; grid-template-columns: repeat(4, var(--k, 64px)); grid-auto-rows: var(--kh, 48px); gap: 6px;
   margin-top: 12px; padding-left: var(--k, 64px); padding-bottom: 0; /* 下段のキーには下向きのフリック候補が無いので、下の余白は要らない */
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
@@ -173,8 +173,7 @@ body.keypad .kana-pad {
 }
 .akey { cursor: pointer; }
 .akey.small, .akey.long { font-size: 22px; }
-.akey.del { grid-column: 4; grid-row: 1 / span 2; font: 24px yodaka, monospace; color: var(--red-text); border-color: var(--red); }
-.akey.clr { grid-column: 4; grid-row: 3 / span 2; font: 24px yodaka, monospace; color: var(--dim); }
+.akey.del { grid-column: 4; grid-row: 1; font: 22px yodaka, monospace; color: var(--red-text); border-color: var(--red); }
 .fkey .fg { display: none; }
 .fkey.down { z-index: 5; background: #17402c; border-color: #57ffb6; }
 .fkey.down .main { visibility: hidden; }
@@ -220,3 +219,8 @@ body.keypad .game-view .kana-pad { flex: none; margin-top: 0; }
 .game-view #log { flex: none; overflow: hidden; height: calc(2 * (1.3em + 6px)); font: 700 clamp(13px, 2.2dvh, 17px)/1.3 var(--kana); }
 .game-view #log li { margin-bottom: 2px; padding: 2px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .game-view #log li:nth-child(n+3) { display: none; }
+
+/* PLAY 画面の英語はすべて yodaka (下のメッセージだけは今のフォントのまま) */
+.game-view .btn, .game-view #com-level, .game-view .sc .who, .game-view .sc small { font-family: yodaka, monospace; }
+.game-view #word::placeholder { font-family: yodaka, monospace; }
+.pop-total .tag { font-family: yodaka, monospace; }
