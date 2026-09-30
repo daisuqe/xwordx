@@ -64,21 +64,33 @@ function showView(name) {
   if (name !== "game") window.scrollTo(0, 0);
 }
 
-// 盤面の枠の大きさ: 幅と「画面の残りの高さ」の小さい方の正方形にする (画面からはみ出さない。幅で決まるときは下に余白が空く)
+// 盤面の枠の大きさ: できるだけ画面の幅いっぱいにする。高さが足りないときは、まずキーパッドのキーの高さを縮め、
+// それでも足りない分だけ盤面を狭くする (画面からはみ出さない。幅いっぱいで収まるときは、下に余白が空く)
+const KEY_H_MAX = 50, KEY_H_MIN = 30;
 function fitBoard() {
   const view = $("game-view");
   if (view.hidden) return;
   const frame = view.querySelector(".board-frame");
+  const pad = $("kana-pad");
   const gap = parseFloat(getComputedStyle(view).rowGap) || 0;
-  let others = 0, count = 0;
+  let others = 0, count = 0, hasPad = false;
   for (const el of view.children) {
     if (el === frame || el.hidden) continue;
     const cs = getComputedStyle(el);
     if (cs.display === "none" || cs.position === "fixed" || cs.position === "absolute") continue;
-    others += el.getBoundingClientRect().height + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0); // 上下の余白も数える
+    if (el === pad) { hasPad = true; count++; continue; } // キーパッドの高さは下で計算する
+    others += el.getBoundingClientRect().height + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
     count++;
   }
-  const room = view.clientHeight - others - gap * count;
+  const avail = view.clientHeight - others - gap * count; // 盤面とキーパッドに使える高さ
+  let room = avail;
+  if (hasPad) {
+    // キーパッドの高さ = キー4段 + 段の間 (6px x 3)
+    const padGap = 18;
+    const kh = Math.max(KEY_H_MIN, Math.min(KEY_H_MAX, (avail - view.clientWidth - padGap) / 4));
+    view.style.setProperty("--kh", `${kh}px`);
+    room = avail - (4 * kh + padGap);
+  }
   const size = Math.max(120, Math.floor(Math.min(view.clientWidth, room)));
   frame.style.width = frame.style.height = `${size}px`;
 }
@@ -615,7 +627,7 @@ const FLICK_KEYS = [
   ["た", "ちつてと"], ["な", "にぬねの"], ["は", "ひふへほ"],
   ["ま", "みむめも"], ["や", "-ゆ-よ"], ["ら", "りるれろ"],
 ];
-const WA_KEY = ["わ", "をん-ー"]; // 中央 わ / 左 を / 上 ん / 右 (なし) / 下 ー。"-" は「割り当てなし」
+const WA_KEY = ["わ", "をん--"]; // 中央 わ / 左 を / 上 ん / 右・下は割り当てなし ("-")。ー は専用キーがある
 const CYCLES = ["あぁ", "いぃ", "うぅゔ", "えぇ", "おぉ", "かが", "きぎ", "くぐ", "けげ", "こご", "さざ", "しじ", "すず", "せぜ", "そぞ",
   "ただ", "ちぢ", "つっづ", "てで", "とど", "はばぱ", "ひびぴ", "ふぶぷ", "へべぺ", "ほぼぽ", "やゃ", "ゆゅ", "よょ", "わゎ"];
 const MAX_INPUT = 12;
@@ -686,8 +698,8 @@ function buildKeypad() {
     return b;
   };
   for (const [label, others] of FLICK_KEYS) pad.append(flickKey(label, others));
+  pad.append(action("小゛゜", "small", padTransform, "small kana or dakuten")); // 下段: 小゛゜ / わ / ー
   pad.append(flickKey(...WA_KEY));
-  pad.append(action("小゛゜", "small", padTransform, "small kana or dakuten"));
   pad.append(action("ー", "long", () => padInsert("ー"), "long vowel mark"));
   pad.append(action("DEL", "del", () => { wordEl.value = [...wordEl.value].slice(0, -1).join(""); }, "delete"));
   pad.append(action("CLR", "clr", () => { wordEl.value = ""; }, "clear"));
@@ -750,9 +762,17 @@ if (new URLSearchParams(location.search).has("debug")) {
     // rows: [[行, 列, "あ"], ...] の配列で盤面の文字を置き直す (所有者なし)
     setLetters(list) {
       letters = Array.from({ length: SIZE }, () => Array(SIZE).fill(""));
-      big = Array.from({ length: SIZE }, () => Array(SIZE).fill(true));
-      for (const [r, c, ch] of list) letters[r][c] = ch;
+      big = Array.from({ length: SIZE }, () => Array(SIZE).fill(false)); // 実際のゲームと同じ: 最初から置いた文字だけが大きい字
+      for (const [r, c, ch] of list) { letters[r][c] = ch; big[r][c] = true; }
       used = new Set();
+    },
+    // 実際に手を打つ (あなたの手として反映) して、盤面の表示文字を返す
+    play(raw, r, c, dir) {
+      const res = check(raw, r, c, dir);
+      if (!res.ok) return { ok: false, error: res.error };
+      apply(res, P);
+      render();
+      return { ok: true, shown: letters.map((row, rr) => row.map((ch, cc) => (ch ? shown(rr, cc) : "・")).join("")) };
     },
     comSearch: () => { const m = comSearch(); return m && { words: m.res.words, points: m.res.points, level: m.res.level }; },
     check: (raw, r, c, dir) => {

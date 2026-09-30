@@ -168,8 +168,6 @@
     <div class="entry">
       <input id="word" type="text" placeholder="WORD" aria-label="Word" autocomplete="off" autocapitalize="off" spellcheck="false">
     </div>
-    <p id="message" role="status"></p>
-
     <div class="board-frame">
       <div class="board-wrap">
         <div id="board" aria-label="Board"></div>
@@ -180,7 +178,10 @@
     <!-- スマホ用の日本語フリック入力 (タッチ端末でだけ game.js が作る) -->
     <div id="kana-pad" class="kana-pad" aria-label="Kana keypad"></div>
 
-    <ol id="log" aria-label="Move log"></ol>
+    <p id="message" role="status"></p>
+
+    <!-- 履歴は画面に出さない (対局中かどうかの判定にだけ使う) -->
+    <ol id="log" hidden aria-label="Move log"></ol>
 
     <div id="leave-confirm" class="leave-confirm" role="dialog" aria-modal="true" aria-labelledby="leave-text" hidden>
       <div class="leave-card">

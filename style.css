@@ -161,9 +161,9 @@ body:not(.ready) .level-choice { opacity: .4; pointer-events: none; }
 /* スマホ用: 盤面の下の日本語フリック入力 */
 .kana-pad { display: none; }
 body.keypad .kana-pad {
-  /* キー3列 + 操作キー1列。左端のキーを左へ、下段のキーを下へフリックしたときの候補を出す余白を、左と下に1キーぶん取る */
+  /* キー3列 + 操作キー1列。左端のキーを左へフリックしたときの候補を出す余白を、左に1キーぶん取る */
   display: grid; grid-template-columns: repeat(3, var(--k, 64px)) calc(var(--k, 64px) * .8); grid-auto-rows: var(--kh, 48px); gap: 6px;
-  margin-top: 12px; padding-left: var(--k, 64px); padding-bottom: calc(var(--kh, 48px) * .75);
+  margin-top: 12px; padding-left: var(--k, 64px); padding-bottom: 0; /* 下段のキーには下向きのフリック候補が無いので、下の余白は要らない */
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .fkey, .akey {
@@ -196,8 +196,8 @@ body.keypad .kana-pad {
 /* 盤面は「幅」と「残りの高さ」の小さい方に合わせた正方形 (大きさは game.js の fitBoard が決める)。
    幅で決まる場合は、下に余白が空く。 */
 body.in-game { overflow: hidden; }
-body.in-game .app { max-width: 620px; height: 100vh; height: 100dvh; padding: 8px 12px calc(6px + env(safe-area-inset-bottom)); }
-.game-view { display: flex; flex-direction: column; gap: 6px; height: 100%; min-height: 0; --kh: clamp(34px, 5.2dvh, 50px); }
+body.in-game .app { max-width: 620px; height: 100vh; height: 100dvh; padding: 8px 8px calc(6px + env(safe-area-inset-bottom)); }
+.game-view { display: flex; flex-direction: column; gap: 4px; height: 100%; min-height: 0; --kh: clamp(34px, 5.2dvh, 50px); }
 .game-view .match-bar { font-size: clamp(14px, 2.2dvh, 18px); }
 .game-view .btn { padding: clamp(6px, 1.3dvh, 12px) 14px; font-size: clamp(14px, 2.2dvh, 18px); }
 .game-view #com-level { font-size: clamp(16px, 2.8dvh, 22px); }
@@ -209,9 +209,9 @@ body.in-game .app { max-width: 620px; height: 100vh; height: 100dvh; padding: 8p
 .game-view .sc small { position: absolute; left: -1px; right: -1px; top: calc(100% + 4px); z-index: 20; margin: 0; padding: 8px 10px; border: 1px solid #237759; background: #081511f2; box-shadow: 0 8px 24px #000c; }
 .game-view .entry { margin: 0; }
 .game-view #word { padding: 4px 12px; font-size: clamp(18px, 3.2dvh, 24px); }
-.game-view #message { min-height: 1.3em; margin: 0; font-size: clamp(13px, 2.3dvh, 18px); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.game-view #message { flex: none; min-height: 1.3em; margin: 0; font-size: clamp(14px, 2.4dvh, 19px); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* 盤面の枠は正方形 (盤面ぴったり) */
-.game-view .board-frame { flex: none; align-self: center; width: min(100%, 60dvh); aspect-ratio: 1; padding: 6px; }
+.game-view .board-frame { flex: none; align-self: center; width: min(100%, 60dvh); aspect-ratio: 1; padding: 3px; }
 .game-view .board-wrap { width: 100%; height: 100%; container-type: inline-size; }
 .game-view #board { width: 100%; height: 100%; aspect-ratio: auto; grid-template-rows: repeat(var(--n, 11), 1fr); }
 .game-view .cell { aspect-ratio: auto; font-size: calc(100cqw / var(--n, 11) * .6); }
