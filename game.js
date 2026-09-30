@@ -173,13 +173,17 @@ function renderMarks() {
     for (const run of marks[bit]) {
       const first = cellEls[run[0]], last = cellEls[run[run.length - 1]];
       if (!first || !last) continue;
-      const pad = 2; // マスの外側にはみ出す量
+      // 太さはマスの8割 (マスの各辺から1割ずつ内側)。長さは単語の両端から1割ずつ外へはみ出させる
+      const cell = first.offsetWidth;
+      const across = cell * 0.1, along = -cell * 0.1;
+      const horizontal = run[1] - run[0] === 1;
+      const ix = horizontal ? along : across, iy = horizontal ? across : along;
       const pill = document.createElement("div");
-      pill.className = "pill " + (bit === P ? "p" : "c");
-      pill.style.left = `${first.offsetLeft - pad}px`;
-      pill.style.top = `${first.offsetTop - pad}px`;
-      pill.style.width = `${last.offsetLeft + last.offsetWidth - first.offsetLeft + pad * 2}px`;
-      pill.style.height = `${last.offsetTop + last.offsetHeight - first.offsetTop + pad * 2}px`;
+      pill.className = "pill";
+      pill.style.left = `${first.offsetLeft + ix}px`;
+      pill.style.top = `${first.offsetTop + iy}px`;
+      pill.style.width = `${last.offsetLeft + last.offsetWidth - first.offsetLeft - ix * 2}px`;
+      pill.style.height = `${last.offsetTop + last.offsetHeight - first.offsetTop - iy * 2}px`;
       layer.appendChild(pill);
     }
   }

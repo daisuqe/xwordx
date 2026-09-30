@@ -185,9 +185,7 @@ body.keypad .kana-pad {
 .fkey.down .fg.d { left: 0; top: 100%; }
 .fkey.down .fg.sel { background: #57ffb6; color: #04120c; }
 
-/* 新しくできた単語を囲むカプセル (相手の1ターンが終わるまで) */
+/* 新しくできた単語を囲むカプセル (相手の1ターンが終わるまで)。金色の細い線だけ (塗りやグローなし)、自分も相手も同じ色 */
 .board-wrap { position: relative; }
 #marks { position: absolute; inset: 0; pointer-events: none; }
-.pill { position: absolute; box-sizing: border-box; border: 3px solid; border-radius: 999px; }
-.pill.p { border-color: #8db8ff; box-shadow: 0 0 10px #2c66c9, inset 0 0 8px #2c66c988; }
-.pill.c { border-color: #ff8da1; box-shadow: 0 0 10px #b8324a, inset 0 0 8px #b8324a88; }
+.pill { position: absolute; box-sizing: border-box; border: 1.5px solid #e8e070; border-radius: 999px; }
