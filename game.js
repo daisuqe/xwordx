@@ -31,10 +31,10 @@ const NAME = { [P]: "YOU", [C]: "COM" };
 //   noise     : 評価に足すランダム幅 (大きいほど雑)
 //   pick      : 評価の上位いくつからランダムに選ぶか
 const PROFILES = {
-  easy: { name: "EASY", size: 9, lv: 1, maxLen: 5, crossOnly: true, random: true, pick: 1 },
-  normal: { name: "NORMAL", size: 11, lv: 3, maxLen: 6, crossOnly: false, island: 0.3, crossBonus: 2, noise: 3, pick: 20 },
-  hard: { name: "HARD", size: 11, lv: 6, maxLen: 7, crossOnly: false, island: 1, crossBonus: 0, noise: 1, pick: 15 },
-  any: { name: "ANY", size: 11, lv: 9, maxLen: 8, crossOnly: false, island: 1.2, crossBonus: 0, noise: 0.5, pick: 8 },
+  easy: { name: "EASY", size: 7, lv: 1, maxLen: 5, crossOnly: true, random: true, pick: 1 },
+  normal: { name: "NORMAL", size: 9, lv: 3, maxLen: 6, crossOnly: false, island: 0.3, crossBonus: 2, noise: 3, pick: 20 },
+  hard: { name: "HARD", size: 9, lv: 6, maxLen: 7, crossOnly: false, island: 1, crossBonus: 0, noise: 1, pick: 15 },
+  any: { name: "ANY", size: 9, lv: 9, maxLen: 8, crossOnly: false, island: 1.2, crossBonus: 0, noise: 0.5, pick: 8 },
 };
 const EASY_BONUS = 0.3; // 段が1つ易しいごとに評価に足す点
 
@@ -42,7 +42,7 @@ const EASY_BONUS = 0.3; // 段が1つ易しいごとに評価に足す点
 function profileFromStrength(strength) {
   const t = Math.min(1, Math.max(0, (strength - 15) / 80)); // 0 (弱い) 〜 1 (強い)
   return {
-    name: "RANK MATCH", size: 11,
+    name: "RANK MATCH", size: 9,
     lv: Math.round(1 + t * 8), maxLen: Math.round(4 + t * 4),
     crossOnly: t < 0.2, random: t < 0.12,
     island: t * 1.2, crossBonus: (1 - t) * 2, noise: 3 - t * 2.5, pick: Math.max(1, Math.round(20 - t * 18)),
