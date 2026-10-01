@@ -383,3 +383,54 @@ button.rank-row:hover, button.rank-row:focus-visible { border-color: #57ffb6; ba
 .game-view .sc .face { width: clamp(28px, 8.5vw, 40px); height: clamp(28px, 8.5vw, 40px); }
 .game-view .sc .who { min-width: 0; overflow: hidden; text-overflow: ellipsis; letter-spacing: .05em; font-size: clamp(12px, 3.9vw, 18px); }
 .game-view .sc b { white-space: nowrap; font-size: clamp(22px, 7.5vw, 34px); }
+
+/* スコア枠の名前: ふつうの 1.5 倍 (枠に収まらないときは game.js の fitNames が、点数の桁数に合わせて小さくする) */
+.game-view .sc .who { font-size: calc(clamp(12px, 3.9vw, 18px) * 1.5); }
+.game-view .sc b { text-align: right; }
+
+/* ===== 手番の枠の光: 黄色・金色系のグロー ===== */
+/* 光は ::before の不透明度だけを動かす (枠の中の顔や数字を毎フレーム描き直さないので、ちらつかない) */
+.game-view .sc.p.active, .game-view .sc.c.active { animation: none; border-color: #ffe27a; box-shadow: none; }
+.game-view .sc.p.active { background: linear-gradient(145deg, #2f63b8, #1c4384); }
+.game-view .sc.c.active { background: linear-gradient(145deg, #8a2e4a, #56192d); }
+.game-view .sc.active::before { content: ""; position: absolute; inset: -2px; pointer-events: none; border: 2px solid #ffe27a;
+  box-shadow: 0 0 12px 2px #ffe27a, 0 0 28px 6px rgba(255, 182, 46, .75), inset 0 0 14px rgba(255, 226, 122, .55); animation: gold-glow 1.4s ease-in-out infinite; }
+@keyframes gold-glow { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+/* 顔のドット絵は、整数倍 (16px の 2 倍) の大きさにして、独立した層にする (半端な拡大のちらつきを防ぐ) */
+.game-view .sc .face { width: 32px; height: 32px; will-change: transform; transform: translateZ(0); }
+
+/* 最後の合計 (+14 など) を、盤面の中央に出す (アニメーションが位置の指定を上書きしないようにする) */
+.fx-total { animation-name: fx-total-in; }
+@keyframes fx-total-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.4); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+
+/* ===== 手番の枠の光: 黄色すぎないよう、白寄りのグローに。枠の輪郭線は、もとの色 (青 / 赤) のまま ===== */
+.game-view .sc.p.active { border-color: #7db4ff; }
+.game-view .sc.c.active { border-color: #ff7b96; }
+.game-view .sc.active::before { border: none; inset: 0;
+  box-shadow: 0 0 10px 2px rgba(255, 255, 255, .85), 0 0 26px 6px rgba(255, 246, 214, .6), inset 0 0 14px rgba(255, 255, 255, .4); }
+
+/* ===== メッセージ欄は日本語: 日本語のフォントを使う ===== */
+.game-view #message { font-family: ui-monospace, "Cascadia Code", Consolas, "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans JP", sans-serif; letter-spacing: .04em; }
+
+/* ===== PC (キーパッドを出さないとき) の WORD 入力欄: 高さと文字を 2 倍 ===== */
+body:not(.keypad) .game-view #word { font-size: calc(clamp(18px, 3.2dvh, 24px) * 2); padding: 8px 20px; line-height: 1.25; }
+body:not(.keypad) .game-view #word::placeholder { font-size: 36px; }
+body:not(.keypad) .game-view #word:placeholder-shown { padding-left: 76px; }
+body:not(.keypad) .game-view .entry:has(#word:placeholder-shown)::after { left: 28px; width: 24px; height: 56px; margin-top: -28px; }
+
+/* 手番の枠のグロー: 白と黄色の中間 (淡い金色) */
+.game-view .sc.active::before { box-shadow: 0 0 10px 2px rgba(255, 238, 176, .9), 0 0 26px 6px rgba(255, 207, 104, .62), inset 0 0 14px rgba(255, 232, 150, .45); }
+
+/* ===== PC (キーパッドを出さないとき): 上のバーのボタンと文字を大きく / 顔のアイコンは 2 倍 ===== */
+@media (min-width: 600px) { /* 幅の広い窓 (PC) だけ。狭い窓では、はみ出さないよう元の大きさのまま */
+  body:not(.keypad) .game-view .match-bar { font-size: calc(clamp(14px, 2.2dvh, 18px) * 1.8); }
+  body:not(.keypad) .game-view .btn { font-size: calc(clamp(14px, 2.2dvh, 18px) * 1.8); padding: calc(clamp(6px, 1.3dvh, 12px) * 1.8) 28px; }
+  body:not(.keypad) .game-view #com-level { font-size: calc(clamp(16px, 2.8dvh, 22px) * 1.8); }
+}
+body:not(.keypad) .game-view .sc .face { width: 64px; height: 64px; }
+.game-view .btn { white-space: nowrap; }
+@media (min-width: 600px) { body:not(.keypad) .game-view .btn { padding-left: 22px; padding-right: 22px; } }
+
+/* ===== スコア枠の名前と点数: どちらも、これまでの 1.5 倍 (枠に収まらなければ game.js の fitNames が --ns で小さくする) ===== */
+.game-view .sc .who { font-size: calc(clamp(12px, 3.9vw, 18px) * 2.25 * var(--ns, 1)); }
+.game-view .sc b { font-size: calc(clamp(22px, 7.5vw, 34px) * 1.5 * var(--ns, 1)); }

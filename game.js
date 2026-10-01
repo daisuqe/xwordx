@@ -163,6 +163,7 @@ const PHONE_BOARD = 0.9; // スマホ (キーパッドがあるとき) の盤面
 function fitBoard() {
   const view = $("game-view");
   if (view.hidden) return;
+  fitNames(); // スコア枠の高さは文字の大きさで変わるので、先に決める
   const frame = view.querySelector(".board-frame");
   const pad = $("kana-pad");
   let others = 0, gaps = 0, hasPad = false;
@@ -208,8 +209,34 @@ function fitBoard() {
   const room = base - gaps * gap - (hasPad ? padH(kh, gap) : 0);
   const size = Math.max(120, Math.floor(Math.min(target, room)));
   frame.style.width = frame.style.height = `${size}px`;
+  // 入力欄は、盤面と同じ幅にする (スマホは盤面が 9 割なので、入力欄も 9 割)
+  const entry = view.querySelector(".entry");
+  entry.style.width = `${size}px`;
+  entry.style.alignSelf = "center";
+}
+
+// スコア枠の名前と点数は、どちらも (これまでの) 1.5 倍の大きさで出す (CSS)。枠に収まらなければ、
+// 名前と点数を同じ比率で、収まるまで少しずつ小さくする (--ns: 1 が 1.5 倍のまま)。
+// 2つの枠で大きさがばらばらにならないよう、2つのうち小さい方の比率にそろえる。
+const NAME_SCALE_MIN = 0.3;
+function fitNames() {
+  if ($("game-view").hidden) return;
+  const cards = [...document.querySelectorAll(".game-view .sc")];
+  let common = 1;
+  for (const card of cards) { // それぞれの枠が収まる比率を調べる
+    const who = card.querySelector(".who");
+    let s = 1;
+    card.style.setProperty("--ns", 1);
+    while ((who.scrollWidth > who.clientWidth + 0.5 || card.scrollWidth > card.clientWidth + 0.5) && s > NAME_SCALE_MIN) {
+      s = Math.round((s - 0.02) * 100) / 100;
+      card.style.setProperty("--ns", s);
+    }
+    common = Math.min(common, s);
+  }
+  for (const card of cards) card.style.setProperty("--ns", common);
 }
 new ResizeObserver(fitBoard).observe($("game-view"));
+new ResizeObserver(fitBoard).observe(document.querySelector(".scores"));
 addEventListener("resize", fitBoard);
 document.fonts?.ready.then(fitBoard);
 
@@ -305,7 +332,7 @@ function recordRank(a, b) {
   rankRecorded = true;
   return rankBook.record(opponent.name, a === b ? 0.5 : a > b ? 1 : 0); // { oldRank, newRank, delta, rating }
 }
-const rankText = (r) => (r ? `  RANK ${r.oldRank}>${r.newRank} (${r.delta >= 0 ? "+" : ""}${r.delta})` : "");
+const rankText = (r) => (r ? `  順位 ${r.oldRank}→${r.newRank} (${r.delta >= 0 ? "+" : ""}${r.delta})` : "");
 
 const toHira = (s) =>
   s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60)).replace(/\s+/g, "");
@@ -322,11 +349,11 @@ function updateWordStatus() {
   if (!dict || over || busy || turn !== P) return;
   const w = currentWord();
   if (!w) return say("");
-  if ([...w].length < MIN_LEN) return say(`${MIN_LEN}+ LETTERS: ${w}`);
+  if ([...w].length < MIN_LEN) return say(`${MIN_LEN}文字以上にしてください: ${w}`);
   const lv = dict.level(w);
-  if (lv < 0) return say(`NOT A WORD: ${w}`, true);
-  if (used.has(canon(w))) return say(`ALREADY USED: ${w}`, true);
-  say(`OK: ${w}  LV ${lv}`, false, true);
+  if (lv < 0) return say(`辞書にありません: ${w}`, true);
+  if (used.has(canon(w))) return say(`使用済みです: ${w}`, true);
+  say(`辞書にあります: ${w}  (段 ${lv})`, false, true);
 }
 
 // ---------- 盤面・得点 ----------
@@ -360,7 +387,7 @@ function newGame() {
   logEl.innerHTML = "";
   wordEl.value = "";
   render();
-  say(mode === "rank" ? (turn === C ? `${NAME[C]} MOVES FIRST` : "YOU MOVE FIRST") : "");
+  say(mode === "rank" ? (turn === C ? `${NAME[C]}の先攻です` : "あなたの先攻です") : "");
   if (turn === C) {
     const id = session;
     setTimeout(() => id === session && comTurn(), 0);
@@ -418,6 +445,7 @@ function render(preview) {
     $(bit === P ? "dp" : "dc").textContent = [`WORD ${wordPts[bit]}`, `CROSS ${crossPts[bit]}`, `ISLAND ${islandPts(owner, bit)}`].join("\n");
   }
   renderMarks();
+  fitNames(); // 点数の桁数が変わると、名前に使える幅も変わる
   $("pass").disabled = over || turn !== P;
   // 手番のスコア枠を明るく光らせる (終了したら両方消す)
   for (const bit of [P, C]) scoreCards[bit].classList.toggle("active", !over && turn === bit);
@@ -505,16 +533,16 @@ function check(raw, r, c, dir, limit = 9) {
   const bigIdx = new Set();
   const fail = (error) => ({ ok: false, error, cells, disp });
 
-  if (chars.length < MIN_LEN) return fail(`${MIN_LEN}+ LETTERS`);
+  if (chars.length < MIN_LEN) return fail(`${MIN_LEN}文字以上にしてください`);
   let overlap = 0;
   const news = [];
   const touched = new Set();
   const mainCells = [];
   for (let i = 0; i < chars.length; i++) {
     const rr = r + dr * i, cc = c + dc * i;
-    if (rr >= SIZE || cc >= SIZE) return fail("OFF BOARD");
+    if (rr >= SIZE || cc >= SIZE) return fail("盤面からはみ出します");
     const cur = letters[rr][cc];
-    if (cur && cur !== chars[i]) return fail(`MISMATCH "${shown(rr, cc)}"`);
+    if (cur && cur !== chars[i]) return fail(`「${shown(rr, cc)}」のマスと合いません`);
     if (cur) overlap++;
     else { news.push([rr, cc]); cells.set(rr * SIZE + cc, chars[i]); disp.set(rr * SIZE + cc, rawChars[i]); }
     if (rawChars[i] === chars[i] && SMALL_OF.has(chars[i])) bigIdx.add(rr * SIZE + cc);
@@ -524,12 +552,12 @@ function check(raw, r, c, dir, limit = 9) {
   const er = r + dr * chars.length, ec = c + dc * chars.length;
   const before = r - dr >= 0 && c - dc >= 0 && letters[r - dr][c - dc];
   const after = er < SIZE && ec < SIZE && letters[er][ec];
-  if (before || after) return fail("LETTER AT THE END");
-  if (!news.length) return fail("NEEDS A NEW LETTER");
+  if (before || after) return fail("単語の前後に文字が続いています");
+  if (!news.length) return fail("新しい文字を置いてください");
   const level = dict.level(word);
-  if (level < 0) return fail(`NOT A WORD: ${raw}`);
-  if (level > limit) return fail(`TOO HARD: ${raw}`);
-  if (used.has(word)) return fail(`ALREADY USED: ${raw}`);
+  if (level < 0) return fail(`辞書にありません: ${raw}`);
+  if (level > limit) return fail(`難しすぎる語です: ${raw}`);
+  if (used.has(word)) return fail(`使用済みです: ${raw}`);
 
   const words = [raw];
   const keys = [word];
@@ -541,15 +569,15 @@ function check(raw, r, c, dir, limit = 9) {
       // 表示用の綴り。単語の先頭は小さい字にならないので、大きい字にそろえる
       const text = run.idx.map((k, j) => (j === 0 ? letters[(k / SIZE) | 0][k % SIZE] || cells.get(k) : disp.get(k) ?? shown((k / SIZE) | 0, k % SIZE))).join("");
       const lv = dict.level(run.s);
-      if (lv < 0) return fail(`CROSS NOT A WORD: ${text}`);
-      if (lv > limit) return fail(`CROSS TOO HARD: ${text}`);
+      if (lv < 0) return fail(`隣り合ってできる語が辞書にありません: ${text}`);
+      if (lv > limit) return fail(`隣り合ってできる語が難しすぎます: ${text}`);
       words.push(text);
       keys.push(run.s);
       runs.push(run.idx);
       run.idx.forEach((k) => touched.add(k));
     }
   }
-  if (!overlap && words.length === 1) return fail("NOT CONNECTED");
+  if (!overlap && words.length === 1) return fail("盤面の文字とつながっていません");
 
   // 新しくできた交点: いま縦の単語と横の単語の両方に入っていて、この手より前はそうでなかったマス
   // (単語が変わるのは、この手で新しくできた単語のマスだけなので、touched だけ調べればよい)
@@ -738,6 +766,7 @@ async function runSequence(bd, id) {
       scoreHold[bd.who] += n;
       const el = $(bd.who === P ? "sp" : "sc");
       el.textContent = scoreHold[bd.who];
+      fitNames();
       el.classList.remove("bump");
       void el.offsetWidth;
       el.classList.add("bump");
@@ -865,7 +894,7 @@ function afterMove(who) {
   marks[turn === P ? C : P] = []; // 手番が終わった: 前の相手の手のカプセルを消す
   passes = who === "pass" ? passes : 0;
   const full = letters.every((row) => row.every(Boolean));
-  if (full || passes >= 2) return finish(passes >= 2 ? "BOTH PASSED" : "BOARD FULL");
+  if (full || passes >= 2) return finish(passes >= 2 ? "2人ともパスしたので終了です" : "盤面が埋まったので終了です");
   turn = turn === P ? C : P;
   render();
   if (turn === C) {
@@ -883,7 +912,7 @@ function finish(reason) {
   const a = total(P), b = total(C);
   const rk = recordRank(a, b);
   showResultFaces(a, b); // 勝った方は喜び、負けた方は悲しい顔に
-  say(`${reason}. ${a === b ? "DRAW" : a > b ? "YOU WIN" : `${NAME[C]} WINS`} ${a} - ${b}${rankText(rk)}`);
+  say(`${reason}。${a === b ? "引き分け" : a > b ? "あなたの勝ち" : `${NAME[C]}の勝ち`} ${a} - ${b}${rankText(rk)}`);
   if (a > b) showVictory(a, b, rk); // 勝ったときは派手な演出
 }
 
@@ -911,7 +940,7 @@ function pass(who) {
   li.textContent = `${NAME[who]}  PASS`;
   logEl.prepend(li);
   // 2人が続けてパスすると終了 (afterMove の中で終了なら結果の表示に置き換わる)
-  say(who === P ? "PASSED. THE GAME ENDS IF COM PASSES TOO." : "COM PASSED. PASS TO END THE GAME.");
+  say(who === P ? "パスしました。相手もパスすると終了します" : `${NAME[C]}がパスしました。あなたもパスすると終了します`);
   afterMove("pass");
 }
 
@@ -1066,7 +1095,7 @@ boardEl.addEventListener("pointerdown", (e) => {
   if (!dict || over || busy || turn !== P) return;
   const cell = cellAt(e);
   if (!cell) return;
-  if (!currentWord()) return say("TYPE A WORD", true);
+  if (!currentWord()) return say("単語を入力してください", true);
   boardEl.setPointerCapture(e.pointerId);
   drag = cell;
 });
@@ -1079,7 +1108,7 @@ boardEl.addEventListener("pointermove", (e) => {
   if (!dir) return render();
   const res = check(currentWord(), drag.r, drag.c, dir);
   render(res);
-  say(res.ok ? `+${res.points}` : res.error, !res.ok);
+  say(res.ok ? `+${res.points}点` : res.error, !res.ok);
 });
 
 boardEl.addEventListener("pointerup", (e) => {
@@ -1089,7 +1118,7 @@ boardEl.addEventListener("pointerup", (e) => {
   drag = null;
   render();
   if (dir) playerMove(currentWord(), r, c, dir);
-  else say("DRAG RIGHT OR DOWN");
+  else say("開始マスから右か下へドラッグしてください");
 });
 boardEl.addEventListener("pointercancel", () => { drag = null; render(); });
 
@@ -1135,15 +1164,16 @@ function buildKeypad() {
     btn.innerHTML = `<span class="main">${label}</span>` +
       list.map((ch, i) => (ch === "-" ? "" : `<i class="fg ${dirs[i]}">${ch}</i>`)).join("");
     let st = null;
-    // 指の下にある候補を選ぶ。どの候補の上でもなければ、中心からの向きで選ぶ (小さく動かしただけでも入る)
+    // 押したキーの上に指がある間は、中央の文字 (タップ)。キーから指が離れたら、そこにある候補を選ぶ
+    // (どの候補の上でもなければ、中心からの向きで選ぶ)。小さく動かしただけでは、フリックにならない
     const dirOf = (e) => {
+      const k = st.keyRect;
+      if (e.clientX >= k.left && e.clientX <= k.right && e.clientY >= k.top && e.clientY <= k.bottom) return 0;
       for (const { d, r } of st.rects) {
-        if (d === 0) continue; // 押したキー自体は、候補ではなく「動かしていない」ときの判定に使う
-        const m = 4; // 候補の縁から少し外れても拾う
-        if (e.clientX >= r.left - m && e.clientX <= r.right + m && e.clientY >= r.top - m && e.clientY <= r.bottom + m) return d;
+        if (d === 0) continue;
+        if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) return d;
       }
       const dx = e.clientX - st.cx, dy = e.clientY - st.cy;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) < st.min * 0.22) return 0;
       return Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 1 : 3) : dy < 0 ? 2 : 4;
     };
     const mark = (d) => btn.querySelectorAll(".fg").forEach((el) => el.classList.toggle("sel", el.classList.contains(dirs[d])));
@@ -1152,7 +1182,7 @@ function buildKeypad() {
       btn.setPointerCapture(e.pointerId);
       btn.classList.add("down");
       const rects = [...btn.querySelectorAll(".fg")].map((el) => ({ d: dirs.indexOf(el.className.split(" ")[1]), r: el.getBoundingClientRect() }));
-      st = { cx: b.left + b.width / 2, cy: b.top + b.height / 2, min: Math.min(b.width, b.height), rects, d: 0 };
+      st = { cx: b.left + b.width / 2, cy: b.top + b.height / 2, keyRect: b, rects, d: 0 };
       mark(0);
     });
     btn.addEventListener("pointermove", (e) => {
@@ -1461,7 +1491,7 @@ if (new URLSearchParams(location.search).has("debug")) {
     },
     victory: (a, b, rk) => showVictory(a, b, rk), // 勝利演出を確かめる
     // 得点を直接決めて対局を終わらせる (勝ち・負けの流れを確かめる)
-    endWith(p, c) { wordPts[P] = p; wordPts[C] = c; finish("TEST"); },
+    endWith(p, c) { wordPts[P] = p; wordPts[C] = c; finish("テスト"); },
     comSearch: () => { const m = comSearch(); return m && { words: m.res.words, points: m.res.points, level: m.res.level }; },
     check: (raw, r, c, dir) => {
       const res = check(raw, r, c, dir);
