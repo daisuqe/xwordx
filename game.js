@@ -149,15 +149,17 @@ function showView(name) {
 
 // 画面の縦方向の割り当て。優先順位:
 //   1. キーは、指で押しやすい高さ KEY_H_COMFORT を確保する (足りないときは、その分だけ盤面を狭くする)
-//   2. 盤面はできるだけ画面の幅いっぱい (正方形)
+//   2. 盤面は画面の幅いっぱい (正方形)。ただしスマホ (キーパッドがあるとき) は PHONE_BOARD 倍にして、その分をキーに回す
 //   3. 余裕があるときは、まず部品の間隔を (2人のスコアの間隔 = GAP_MAX まで)、次にキーの高さを最大まで広げる
-// キーパッド: キーは3列で、キーどうしのすき間は無し。縦横比は 3:4 (幅:高さ = 4:3)。
-//   フリックの候補は、キーと同じ大きさで上下左右に出る。左端のキーの左と、下段のキーの下に出る候補のために、
-//   左にはキー1つぶんの余白を取る。下は、メッセージ欄に重なってよいが、画面の外には出さない。
+// キーパッド: キーは3列で、キーどうしのすき間は無し。キー部分が画面の中央に来るよう、左右にキー1つぶんずつ余白を取る
+//   (フリックの候補が、キーと同じ大きさで、左端のキーの左と右端のキーの右にも出るため)。
+//   幅はその分だけ使い切り、高さは余った分だけ伸ばす (縦横比は、幅:高さ = 1:1〜KEY_ASPECT:1)。
+//   下段のキーの下に出る候補は、メッセージ欄に重なってよいが、画面の外には出さない。
 const GAP_MIN = 4, GAP_MAX = 10; // 部品どうしの縦の間隔
 const KEY_H_COMFORT = 44; // キーの高さの下限 (iOS の押しやすさの目安)
-const KEY_ASPECT = 4 / 3; // キーの 幅 / 高さ
+const KEY_ASPECT = 1.5; // キーの 幅 / 高さ の上限 (高さが足りないとき、これより横長にはしない)
 const KEYPAD_COLS = 3; // キーの列の数
+const PHONE_BOARD = 0.9; // スマホ (キーパッドがあるとき) の盤面の大きさ (画面の幅に対する割合)
 function fitBoard() {
   const view = $("game-view");
   if (view.hidden) return;
@@ -176,12 +178,13 @@ function fitBoard() {
   const base = view.clientHeight - others; // 盤面・キーパッド・部品の間隔に使える高さ
   const msgH = $("message").getBoundingClientRect().height;
   const bottomPad = parseFloat(getComputedStyle(view.parentElement).paddingBottom) || 0; // 画面の下端の余白 (安全領域を含む)
-  const fullK = width / (KEYPAD_COLS + 1); // キーの幅の最大 (すき間なし。左の余白がキー1つぶん)
-  const keyHMax = fullK / KEY_ASPECT; // それに合わせたキーの高さの最大
+  const fullK = width / (KEYPAD_COLS + 2); // キーの幅の最大 (すき間なし。左右の余白がキー1つぶんずつ)
+  const keyHMax = fullK; // キーの高さの最大 (正方形まで)
+  const target = hasPad ? width * PHONE_BOARD : width; // 盤面の大きさの目標
   // 下段のキーを下へフリックしたときの候補は、メッセージ欄の上に重なってよいが、画面の外には出さない
   const reserveOf = (kh, gap) => Math.max(0, kh - (gap + msgH + bottomPad));
   const padH = (kh, gap) => 4 * kh + reserveOf(kh, gap);
-  const need = (gap, kh) => width + gaps * gap + (hasPad ? padH(kh, gap) : 0); // 盤面が幅いっぱいのときに必要な高さ
+  const need = (gap, kh) => target + gaps * gap + (hasPad ? padH(kh, gap) : 0); // 盤面が目標の大きさのときに必要な高さ
 
   let gap = GAP_MIN, kh = Math.min(KEY_H_COMFORT, keyHMax);
   const spare = base - need(gap, kh); // 負なら、盤面を狭くするしかない
@@ -203,7 +206,7 @@ function fitBoard() {
     pad.style.setProperty("--reserve", `${reserveOf(kh, gap)}px`);
   }
   const room = base - gaps * gap - (hasPad ? padH(kh, gap) : 0);
-  const size = Math.max(120, Math.floor(Math.min(width, room)));
+  const size = Math.max(120, Math.floor(Math.min(target, room)));
   frame.style.width = frame.style.height = `${size}px`;
 }
 new ResizeObserver(fitBoard).observe($("game-view"));

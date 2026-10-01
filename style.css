@@ -162,10 +162,10 @@ body:not(.ready) .level-choice { opacity: .4; pointer-events: none; }
 .kana-pad { display: none; }
 body.keypad .kana-pad {
   align-self: center; /* キーの幅を抑えたときは、中央に寄せる */
-  /* キー3列。キーどうしのすき間は無し。左端のキーを左へフリックしたときの候補を出す余白を、左にキー1つぶん取る。
+  /* キー3列。キーどうしのすき間は無し。左端のキーの左と右端のキーの右に出る候補のために、左右にキー1つぶんずつ余白を取る。
      下段のキーを下へフリックしたときの候補は、メッセージ欄に重なってよいので、下の余白 (--reserve) は画面の外に出ないぶんだけ */
   display: grid; grid-template-columns: repeat(3, var(--k, 84px)); grid-auto-rows: var(--kh, 48px); gap: 0;
-  margin-top: 12px; padding-left: var(--k, 84px); padding-bottom: var(--reserve, 0px);
+  margin-top: 12px; padding-inline: var(--k, 84px); padding-bottom: var(--reserve, 0px); /* 左右に同じ余白: キー部分が中央に来る */
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .fkey, .akey {
@@ -375,3 +375,11 @@ button.rank-row:hover, button.rank-row:focus-visible { border-color: #57ffb6; ba
 .fx-total b { display: block; font-size: clamp(72px, 26vw, 150px); line-height: 1; }
 .sc b.bump { animation: tally-num .25s ease-out; }
 @keyframes tally-num { 0% { transform: scale(1.5); filter: brightness(2); } 100% { transform: scale(1); filter: brightness(1); } }
+
+/* ===== スコア枠: 幅に収める (顔・名前・点数が右にはみ出さない)。名前の右の ▾ は無し ===== */
+.sc .who::after, .sc.open .who::after { content: none; }
+.scores { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.game-view .sc { min-width: 0; overflow: visible; padding: 4px 8px; column-gap: 6px; grid-template-columns: auto minmax(0, 1fr) auto; }
+.game-view .sc .face { width: clamp(28px, 8.5vw, 40px); height: clamp(28px, 8.5vw, 40px); }
+.game-view .sc .who { min-width: 0; overflow: hidden; text-overflow: ellipsis; letter-spacing: .05em; font-size: clamp(12px, 3.9vw, 18px); }
+.game-view .sc b { white-space: nowrap; font-size: clamp(22px, 7.5vw, 34px); }
