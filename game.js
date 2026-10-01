@@ -148,13 +148,16 @@ function showView(name) {
 }
 
 // 画面の縦方向の割り当て。優先順位:
-//   1. 盤面はできるだけ画面の幅いっぱい (正方形)
-//   2. 高さが足りないときは、部品の間隔とキーの高さを最小まで詰めて、それでも足りない分だけ盤面を狭くする
-//   3. 高さに余裕があるときは、まず部品の間隔を (2人のスコアの間隔 = GAP_MAX まで)、次にキーの高さを広げる
+//   1. キーは、指で押しやすい高さ KEY_H_COMFORT を確保する (足りないときは、その分だけ盤面を狭くする)
+//   2. 盤面はできるだけ画面の幅いっぱい (正方形)
+//   3. 余裕があるときは、まず部品の間隔を (2人のスコアの間隔 = GAP_MAX まで)、次にキーの高さを最大まで広げる
+// キーパッド: キーは3列で、キーどうしのすき間は無し。縦横比は 3:4 (幅:高さ = 4:3)。
+//   フリックの候補は、キーと同じ大きさで上下左右に出る。左端のキーの左と、下段のキーの下に出る候補のために、
+//   左にはキー1つぶんの余白を取る。下は、メッセージ欄に重なってよいが、画面の外には出さない。
 const GAP_MIN = 4, GAP_MAX = 10; // 部品どうしの縦の間隔
-const KEY_H_MIN = 30, KEY_H_MAX = 72; // キーパッドのキーの高さ (幅は約90pxなので、最大でも少しだけ縦長にとどめる)
-const KEY_ASPECT = 1.5; // キーの 幅 / 高さ の上限
-const PAD_ROWS = 4 + 0.92; // キーパッドの高さ = キー4段 + 下の余白 (下フリックの候補ぶん) をキーの高さで数えた値
+const KEY_H_COMFORT = 44; // キーの高さの下限 (iOS の押しやすさの目安)
+const KEY_ASPECT = 4 / 3; // キーの 幅 / 高さ
+const KEYPAD_COLS = 3; // キーの列の数
 function fitBoard() {
   const view = $("game-view");
   if (view.hidden) return;
@@ -170,24 +173,36 @@ function fitBoard() {
     others += el.getBoundingClientRect().height + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
   }
   const width = view.clientWidth;
-  const padGap = 18; // キーの段の間 (6px x 3)
   const base = view.clientHeight - others; // 盤面・キーパッド・部品の間隔に使える高さ
-  let gap = GAP_MIN, kh = KEY_H_MIN;
-  let spare = base - (width + gaps * GAP_MIN + (hasPad ? PAD_ROWS * KEY_H_MIN + padGap : 0)); // 最小の構成で盤面が幅いっぱいのときの余り
+  const msgH = $("message").getBoundingClientRect().height;
+  const bottomPad = parseFloat(getComputedStyle(view.parentElement).paddingBottom) || 0; // 画面の下端の余白 (安全領域を含む)
+  const fullK = width / (KEYPAD_COLS + 1); // キーの幅の最大 (すき間なし。左の余白がキー1つぶん)
+  const keyHMax = fullK / KEY_ASPECT; // それに合わせたキーの高さの最大
+  // 下段のキーを下へフリックしたときの候補は、メッセージ欄の上に重なってよいが、画面の外には出さない
+  const reserveOf = (kh, gap) => Math.max(0, kh - (gap + msgH + bottomPad));
+  const padH = (kh, gap) => 4 * kh + reserveOf(kh, gap);
+  const need = (gap, kh) => width + gaps * gap + (hasPad ? padH(kh, gap) : 0); // 盤面が幅いっぱいのときに必要な高さ
+
+  let gap = GAP_MIN, kh = Math.min(KEY_H_COMFORT, keyHMax);
+  const spare = base - need(gap, kh); // 負なら、盤面を狭くするしかない
   if (spare > 0) {
-    const g = Math.min(GAP_MAX - GAP_MIN, spare / gaps);
-    gap += g;
-    spare -= g * gaps;
-    if (hasPad) kh += Math.min(KEY_H_MAX - KEY_H_MIN, spare / PAD_ROWS);
+    gap += Math.min(GAP_MAX - GAP_MIN, spare / gaps); // まず部品の間隔を広げる
+    if (hasPad) { // 残りでキーを大きくする (入る最大の高さを二分探索)
+      if (need(gap, keyHMax) <= base) kh = keyHMax;
+      else {
+        let lo = kh, hi = keyHMax;
+        for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (need(gap, mid) <= base) lo = mid; else hi = mid; }
+        kh = lo;
+      }
+    }
   }
   view.style.rowGap = `${gap}px`;
-  view.style.setProperty("--kh", `${kh}px`);
   if (hasPad) {
-    // キーの幅は、画面の幅いっぱい (左の余白 + キー3列 + 段の間 6px x 2) まで。ただし、高さの KEY_ASPECT 倍を超えて横長にはしない
-    const fullK = (width - 12) / (KEYPAD_COLS + KEYPAD_RESERVE);
+    view.style.setProperty("--kh", `${kh}px`);
     pad.style.setProperty("--k", `${Math.min(fullK, kh * KEY_ASPECT)}px`);
+    pad.style.setProperty("--reserve", `${reserveOf(kh, gap)}px`);
   }
-  const room = base - gaps * gap - (hasPad ? PAD_ROWS * kh + padGap : 0);
+  const room = base - gaps * gap - (hasPad ? padH(kh, gap) : 0);
   const size = Math.max(120, Math.floor(Math.min(width, room)));
   frame.style.width = frame.style.height = `${size}px`;
 }
@@ -621,6 +636,8 @@ function speakWord(text) {
 //   3. 島: 島を囲んで光らせて、島の得点を加える
 //   4. 合計を大きく出す
 // 結果は最低 POP_MIN_MS の間は出し続け、それまではタップで飛ばせない。
+// 演出の色: 文字数 = 手を打った側の色 (青 / 赤) / 交点 = 金色 / 島 = 緑系
+const GOLD = "#ffe27a", GOLD_DEEP = "#ffb62e", GREEN = "#2bff9a", GREEN_LIGHT = "#b8ffd9";
 const FX_SCALE = FAST ? 0.05 : 1; // 動作確認用 (?fast) では、待ち時間を縮める
 let fxHold = false; // 演出中: カプセルとひし形は、演出が終わってから出す
 let scoreHold = null; // 演出中のスコア欄の値 (点が数えられるのに合わせて増やす)
@@ -659,8 +676,9 @@ function fxFloat(x, y, text, cls, color) { // 浮かび上がる数字
   const f = fxEl("fx-float " + cls, x, y, text, `color:${color}`);
   setTimeout(() => f.remove(), 1300);
 }
-function flashCell(k) {
+function flashCell(k, color) {
   const el = cellEls[k];
+  el.style.setProperty("--fxc", color); // 光の色
   el.classList.remove("fx-flash");
   void el.offsetWidth; // アニメーションを最初からやり直す
   el.classList.add("fx-flash");
@@ -703,7 +721,9 @@ async function runSequence(bd, id) {
   const col = bd.who === P ? "#8db8ff" : "#ff8da1";
   let tally = 0;
   const tallyEl = fxEl("fx-tally", 0, 0);
-  const setTally = (tag, text) => {
+  const setTally = (tag, text, color) => {
+    tallyEl.style.color = color;
+    tallyEl.style.borderColor = color;
     tallyEl.innerHTML = `<span class="tag">${escHtml(tag)}</span><span class="jp">${escHtml(text)}</span><b>+${tally}</b>`;
     tallyEl.classList.remove("bump");
     void tallyEl.offsetWidth;
@@ -729,13 +749,13 @@ async function runSequence(bd, id) {
       if (!alive()) return;
       n++;
       const b = cellBox(k);
-      flashCell(k);
+      flashCell(k, col);
       fxRing(b.x, b.y, col, b.w);
       fxSparks(b.x, b.y, col, 8, b.w * 0.6, b.w * 1.3);
       fxFloat(b.x, b.y, "+1", "small", col);
       blip(520 + n * 48, 0.08);
       add(1);
-      setTally(tag, text);
+      setTally(tag, text, col);
       await sleepFx(240);
     }
     await sleepFx(220);
@@ -745,23 +765,23 @@ async function runSequence(bd, id) {
   for (let i = 0; i < bd.inter.length; i++) {
     if (!alive()) return;
     const k = bd.inter[i], b = cellBox(k);
-    flashCell(k);
+    flashCell(k, GOLD);
     boardEl.parentElement.classList.remove("fx-shake");
     void boardEl.offsetWidth;
     boardEl.parentElement.classList.add("fx-shake");
     const side = b.w * GEM_SIZE / Math.SQRT2; // 回転させた正方形の対角線が、マスの GEM_SIZE 倍になる辺の長さ
     const d = fxEl("fx-diamond", b.x, b.y, null, `width:${side}px;height:${side}px`);
     setTimeout(() => d.remove(), 900);
-    fxRing(b.x, b.y, "#ffe27a", b.w, 0);
-    fxRing(b.x, b.y, "#ffffff", b.w, 120);
-    fxRing(b.x, b.y, "#ffe27a", b.w, 240);
-    fxSparks(b.x, b.y, "#ffe27a", 18, b.w * 1.0, b.w * 2.4);
-    fxSparks(b.x, b.y, "#ffffff", 10, b.w * 0.6, b.w * 1.6);
-    fxFloat(b.x, b.y, `+${CROSSING_BONUS}`, "big", "#ffe27a");
+    fxRing(b.x, b.y, GOLD, b.w, 0);
+    fxRing(b.x, b.y, GOLD_DEEP, b.w, 120);
+    fxRing(b.x, b.y, GOLD, b.w, 240);
+    fxSparks(b.x, b.y, GOLD, 18, b.w * 1.0, b.w * 2.4);
+    fxSparks(b.x, b.y, GOLD_DEEP, 10, b.w * 0.6, b.w * 1.6);
+    fxFloat(b.x, b.y, `+${CROSSING_BONUS}`, "big", GOLD);
     blip(880 + i * 110, 0.1, "square", 0.3);
     setTimeout(() => blip(1320 + i * 110, 0.14, "triangle", 0.3), 90);
     add(CROSSING_BONUS);
-    setTally(`CROSSING ${i + 1}/${bd.inter.length}`, "");
+    setTally(`CROSSING ${i + 1}/${bd.inter.length}`, "", GOLD);
     await sleepFx(640);
   }
 
@@ -769,18 +789,18 @@ async function runSequence(bd, id) {
   if (bd.island.length) {
     if (!alive()) return;
     let cx = 0, cy = 0;
-    for (const cells of bd.island) { const c = fxIsland(cells, "#57ffb6"); cx += c.x; cy += c.y; }
+    for (const cells of bd.island) { const c = fxIsland(cells, GREEN); cx += c.x; cy += c.y; }
     cx /= bd.island.length; cy /= bd.island.length;
     const size = cellBox(0).w;
-    fxRing(cx, cy, "#57ffb6", size * 2);
-    fxRing(cx, cy, "#ffffff", size * 2, 150);
-    fxRing(cx, cy, "#57ffb6", size * 2, 300);
-    fxSparks(cx, cy, "#57ffb6", 26, size * 1.5, size * 4);
-    fxSparks(cx, cy, "#ffffff", 14, size * 1, size * 3);
-    fxFloat(cx, cy, `+${bd.islandGain}`, "huge", "#57ffb6");
+    fxRing(cx, cy, GREEN, size * 2);
+    fxRing(cx, cy, GREEN_LIGHT, size * 2, 150);
+    fxRing(cx, cy, GREEN, size * 2, 300);
+    fxSparks(cx, cy, GREEN, 26, size * 1.5, size * 4);
+    fxSparks(cx, cy, GREEN_LIGHT, 14, size * 1, size * 3);
+    fxFloat(cx, cy, `+${bd.islandGain}`, "huge", GREEN);
     [523, 659, 784, 1047].forEach((hz, j) => setTimeout(() => blip(hz, 0.16, "triangle", 0.3), j * 90));
     add(bd.islandGain);
-    setTally("ISLAND", "");
+    setTally("ISLAND", "", GREEN);
     await sleepFx(1300);
   }
 
@@ -1098,10 +1118,6 @@ function padTransform() { // 小 ゛ ゜: 直前の字を小さい字/濁音/半
   wordEl.value = chars.join("");
   updateWordStatus();
 }
-
-// フリックの候補の大きさは、キーの大きさの CAND_SCALE 倍 (押したキー自体は、ボタンと同じ大きさで出す)
-const CAND_SCALE = 0.88;
-const KEYPAD_COLS = 3, KEYPAD_RESERVE = 0.92; // 左端のキーを左へフリックしたときの候補を出す余白 (キーの幅の倍率)
 
 function buildKeypad() {
   const pad = $("kana-pad");

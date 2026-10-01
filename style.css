@@ -162,9 +162,10 @@ body:not(.ready) .level-choice { opacity: .4; pointer-events: none; }
 .kana-pad { display: none; }
 body.keypad .kana-pad {
   align-self: center; /* キーの幅を抑えたときは、中央に寄せる */
-  /* キー3列。左端のキーを左へ、下段のキーを下へフリックしたときの候補を出す余白を、左と下に取る */
-  display: grid; grid-template-columns: repeat(3, var(--k, 84px)); grid-auto-rows: var(--kh, 48px); gap: 6px;
-  margin-top: 12px; padding-left: calc(var(--k, 84px) * .92); padding-bottom: calc(var(--kh, 48px) * .92);
+  /* キー3列。キーどうしのすき間は無し。左端のキーを左へフリックしたときの候補を出す余白を、左にキー1つぶん取る。
+     下段のキーを下へフリックしたときの候補は、メッセージ欄に重なってよいので、下の余白 (--reserve) は画面の外に出ないぶんだけ */
+  display: grid; grid-template-columns: repeat(3, var(--k, 84px)); grid-auto-rows: var(--kh, 48px); gap: 0;
+  margin-top: 12px; padding-left: var(--k, 84px); padding-bottom: var(--reserve, 0px);
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .fkey, .akey {
@@ -176,15 +177,15 @@ body.keypad .kana-pad {
 .akey.small { font-size: 22px; }
 .akey.del { font: 22px yodaka, monospace; color: var(--red-text); border-color: var(--red); }
 .fkey .fg { display: none; }
-.fkey.down { z-index: 5; background: #17402c; border-color: #57ffb6; }
+.fkey.down { z-index: 50; background: #17402c; border-color: #57ffb6; }
 .fkey.down .main { visibility: hidden; }
-.fkey.down .fg { display: flex; align-items: center; justify-content: center; position: absolute; width: 88%; height: 88%; font-style: normal;
+.fkey.down .fg { display: flex; align-items: center; justify-content: center; position: absolute; width: 100%; height: 100%; box-sizing: border-box; font-style: normal;
   background: #0d2a1f; border: 1px solid #57ffb6; color: #d8fff0; box-shadow: 0 0 14px #19cc7955; }
-.fkey.down .fg.c { left: -1px; top: -1px; width: calc(100% + 2px); height: calc(100% + 2px); background: #17402c; } /* 押したキー自体 (ボタンと同じ大きさ) */
-.fkey.down .fg.l { right: calc(100% + 3px); top: 6%; }
-.fkey.down .fg.r { left: calc(100% + 3px); top: 6%; }
-.fkey.down .fg.u { bottom: calc(100% + 3px); left: 6%; }
-.fkey.down .fg.d { top: calc(100% + 3px); left: 6%; }
+.fkey.down .fg.c { left: 0; top: 0; background: #17402c; } /* 押したキー自体 */
+.fkey.down .fg.l { right: 100%; top: 0; }
+.fkey.down .fg.r { left: 100%; top: 0; }
+.fkey.down .fg.u { bottom: 100%; left: 0; }
+.fkey.down .fg.d { top: 100%; left: 0; }
 .fkey.down .fg.sel { background: #57ffb6; color: #04120c; }
 
 /* 新しくできた単語を囲むカプセル (相手の1ターンが終わるまで)。金色の細い線だけ (塗りやグローなし)、自分も相手も同じ色 */
@@ -330,7 +331,7 @@ button.rank-row:hover, button.rank-row:focus-visible { border-color: #57ffb6; ba
 .cell.fx-flash { position: relative; z-index: 6; animation: cell-flash .6s ease-out; }
 @keyframes cell-flash {
   0% { transform: scale(1); filter: brightness(1); }
-  25% { transform: scale(1.45); filter: brightness(2.6) saturate(1.4); box-shadow: 0 0 18px 6px #fff, 0 0 34px 12px #ffe27a; }
+  25% { transform: scale(1.45); filter: brightness(2.6) saturate(1.4); box-shadow: 0 0 18px 6px var(--fxc, #fff), 0 0 34px 12px var(--fxc, #ffe27a); }
   100% { transform: scale(1); filter: brightness(1); box-shadow: none; }
 }
 
@@ -363,7 +364,7 @@ button.rank-row:hover, button.rank-row:focus-visible { border-color: #57ffb6; ba
 }
 
 /* 数え上げの表示と、最後の合計 */
-.fx-tally { position: absolute; left: 50% !important; top: 6px !important; transform: translateX(-50%); display: flex; align-items: baseline; gap: 10px; padding: 4px 14px; border: 1px solid #ffe27a; background: #020707d8; white-space: nowrap; font-family: yodaka, monospace; color: #ffe27a; z-index: 30; }
+.fx-tally { position: absolute; border: 1px solid; left: 50% !important; top: 6px !important; transform: translateX(-50%); display: flex; align-items: baseline; gap: 10px; padding: 4px 14px; border: 1px solid #ffe27a; background: #020707d8; white-space: nowrap; font-family: yodaka, monospace; color: #ffe27a; z-index: 30; }
 .fx-tally .tag { font-size: 13px; letter-spacing: .14em; color: var(--dim); }
 .fx-tally .jp { font: 700 18px var(--kana); color: #d8fff0; }
 .fx-tally b { font-size: clamp(26px, 7vw, 38px); }
