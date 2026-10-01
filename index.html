@@ -100,7 +100,7 @@
 
       <section class="help-block">
         <h3>ランクマッチ</h3>
-        <p>あなたと COM のキャラクター99人が、1つのランキングに並びます。<b>自分の順位の上下10人</b>から相手を選んで対戦します。</p>
+        <p>あなたと COM のキャラクター99人が、1つのランキングに並びます。<b>自分の順位の上下30位以内</b>から相手を選んで対戦します。</p>
         <ul>
           <li>チェスと同じ Elo 方式です。勝つとレーティングが上がり、順位の高い相手に勝つほど大きく上がります。負けると下がります。</li>
           <li>相手が強いほど、COM は長い単語や難しい単語を使い、島も意識して打ってきます。</li>
@@ -174,7 +174,7 @@
 
       <section class="help-block">
         <h3>RANK MATCH</h3>
-        <p>YOU AND THE 99 COM CHARACTERS SHARE ONE RANKING. CHOOSE AN OPPONENT FROM <b>THE 10 ABOVE AND 10 BELOW YOUR RANK</b>.</p>
+        <p>YOU AND THE 99 COM CHARACTERS SHARE ONE RANKING. YOUR OPPONENT IS PICKED AT RANDOM FROM <b>WITHIN 30 RANKS ABOVE OR BELOW YOU</b>.</p>
         <ul>
           <li>IT USES THE SAME ELO SYSTEM AS CHESS. A WIN RAISES YOUR RATING (MORE FOR BEATING A HIGHER RANK), A LOSS LOWERS IT.</li>
           <li>THE STRONGER THE OPPONENT, THE LONGER AND RARER THE WORDS IT USES, AND THE MORE IT PLAYS FOR ISLANDS.</li>
@@ -199,7 +199,6 @@
     <div class="match-bar"><button id="edit-back" class="btn" type="button">&lt; BACK</button></div>
     <h2 class="help-title">CHARACTER EDIT</h2>
     <div class="edit-preview"><span class="face player big" id="edit-face"></span></div>
-    <div class="edit-expr" id="edit-expr" role="group" aria-label="Expression preview"><button class="btn selected" type="button" data-expr="normal">NORMAL</button><button class="btn" type="button" data-expr="win">WIN</button><button class="btn" type="button" data-expr="lose">LOSE</button></div>
     <label class="edit-name" for="edit-name">NAME
       <input id="edit-name" type="text" maxlength="4" pattern="[A-Z]{1,4}" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Name, one to four uppercase letters">
     </label>
@@ -262,8 +261,14 @@
   </section>
 
   <!-- VICTORY -->
+  <!-- RANK MATCH: 対戦前の紹介 (左上にあなた、右下に相手) -->
+  <div id="vs-intro" class="vs-intro" role="dialog" aria-label="Match up" hidden>
+    <div class="vs-side vs-you"><span class="face player big" id="vs-you-face"></span><div class="vs-name" id="vs-you-name"></div><div class="vs-info" id="vs-you-info"></div></div>
+    <div class="vs-mid"><div class="vs-vs">VS</div><div class="vs-rec" id="vs-rec"></div></div>
+    <div class="vs-side vs-com"><span class="face big" id="vs-com-face"></span><div class="vs-name" id="vs-com-name"></div><div class="vs-info" id="vs-com-info"></div></div>
+  </div>
+
   <div id="victory" class="victory" role="dialog" aria-label="You win" hidden>
-    <div class="vic-rays" aria-hidden="true"></div>
     <div class="vic-fx" id="vic-fx" aria-hidden="true"></div>
     <div class="vic-card">
       <span class="face player vic-face" id="vic-face"></span>

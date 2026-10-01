@@ -270,10 +270,6 @@ button.rank-row:hover, button.rank-row:focus-visible { border-color: #57ffb6; ba
 /* 勝ったときの演出 (光の筋・紙吹雪・花火・大きな YOU WIN) */
 .victory { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; overflow: hidden; cursor: pointer;
   background: radial-gradient(circle at 50% 45%, #3a3000f2 0, #050a0bf5 72%); animation: vic-flash .9s ease-out; }
-.vic-rays { position: absolute; left: 50%; top: 45%; width: 240vmax; height: 240vmax; margin: -120vmax 0 0 -120vmax;
-  background: repeating-conic-gradient(from 0deg, rgba(232, 224, 112, .3) 0 7deg, transparent 7deg 18deg);
-  -webkit-mask-image: radial-gradient(circle, #000 0, transparent 40%); mask-image: radial-gradient(circle, #000 0, transparent 40%);
-  animation: vic-rays 16s linear infinite; }
 .vic-fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .conf { position: absolute; top: -24px; border-radius: 2px; animation: conf-fall linear infinite; }
 .spark { position: absolute; width: 8px; height: 8px; margin: -4px; border-radius: 50%; box-shadow: 0 0 8px currentColor; animation: spark 1.2s ease-out forwards; }
@@ -285,7 +281,6 @@ button.rank-row:hover, button.rank-row:focus-visible { border-color: #57ffb6; ba
 .vic-rank { min-height: 1.2em; margin-top: 8px; font: clamp(20px, 6vw, 34px) yodaka, monospace; color: #8db8ff; text-shadow: 0 0 14px #3d7be0; }
 .vic-tap { margin-top: 30px; font: 16px yodaka, monospace; letter-spacing: .2em; color: var(--dim); animation: blink 1s steps(2, end) infinite; }
 @keyframes vic-flash { from { background-color: #fff; } }
-@keyframes vic-rays { to { transform: rotate(360deg); } }
 @keyframes vic-pop { from { transform: scale(.2) rotate(-14deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
 @keyframes vic-glow { from { transform: scale(1); text-shadow: 0 0 12px #e8e070, 0 0 40px #e8b000, 0 5px 0 #a06a00; } to { transform: scale(1.07); text-shadow: 0 0 22px #fff6a8, 0 0 70px #ffcc00, 0 5px 0 #a06a00; } }
 @keyframes conf-fall { from { transform: translate3d(0, -20px, 0) rotate(0); } to { transform: translate3d(var(--x, 0), 110vh, 0) rotate(var(--r, 360deg)); } }
@@ -436,7 +431,7 @@ body:not(.keypad) .game-view .sc .face { width: 64px; height: 64px; }
 .game-view .sc b { font-size: calc(clamp(22px, 7.5vw, 34px) * 1.5 * var(--ns, 1)); }
 
 /* ===== 1ターンの最後に出る加点 (+27 など): 金色のグロー ===== */
-.fx-total { color: #ffe27a !important; text-shadow: 0 0 14px #ffe27a, 0 0 34px #ffb62e, 0 0 60px rgba(255, 182, 46, .6), 0 4px 0 #000a; }
+.fx-total { text-shadow: 0 0 12px #e8e070, 0 0 40px #e8b000, 0 4px 0 #000a; } /* グローは金色、文字色は自分の色を明るくしたもの (game.js が指定) */
 .fx-total .tag { color: #ffe9a8; text-shadow: none; }
 
 /* ===== メッセージ: 1行に収まらないときは、スクロールさせる ===== */
@@ -454,3 +449,151 @@ body:not(.keypad) .game-view .sc .face { width: 64px; height: 64px; }
 .rank-list { scrollbar-width: none; -ms-overflow-style: none; cursor: grab; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
 .rank-list::-webkit-scrollbar { display: none; }
 .rank-list.dragging { cursor: grabbing; user-select: none; }
+
+/* ゆらゆら落ちる紙: 落下 + 左右の揺れ + ひらひら裏返る */
+.flut { position: absolute; top: -40px; border-radius: 2px; opacity: .92;
+  animation-name: flut-fall, flut-sway, flut-flip; animation-timing-function: linear, ease-in-out, ease-in-out; animation-iteration-count: infinite, infinite, infinite; animation-direction: normal, alternate, alternate; }
+@keyframes flut-fall { from { translate: 0 -20px; } to { translate: 0 112vh; } }
+@keyframes flut-sway { from { margin-left: calc(var(--sway, 40px) * -1); } to { margin-left: var(--sway, 40px); } }
+@keyframes flut-flip { from { transform: rotateX(0) rotateZ(-25deg); } to { transform: rotateX(180deg) rotateZ(25deg); } }
+
+/* ===== ボタンの背景を、少し明るく ===== */
+.btn, .help-button { background: #153629; }
+.btn:hover, .help-button:hover, .help-button:focus-visible { background: #24604a; }
+.level-choice { background: linear-gradient(145deg, #1f4535, #12302a); box-shadow: inset 0 0 0 1px #135a3e, 0 8px 28px #0009; }
+.fkey, .akey { background: linear-gradient(145deg, #1f4535, #12302a); box-shadow: inset 0 0 0 1px #135a3e; }
+.fkey.down { background: #24604a; }
+.fkey.down .fg { background: #1a4a38; }
+.fkey.down .fg.c { background: #24604a; }
+.fkey.down .fg.sel { background: #57ffb6; }
+.rank-row { background: #102a21; }
+button.rank-row:hover, button.rank-row:focus-visible { background: #24604a; }
+
+/* ===== ボタン: 背景は少し暗く・わずかに黄緑寄りで彩度高め、輪郭は明るく ===== */
+.btn, .help-button { background: #123d22; border-color: #4fe08a; }
+.btn:hover, .help-button:hover, .help-button:focus-visible { background: #1f6130; border-color: #a6ffc9; }
+.level-choice { background: linear-gradient(145deg, #1a4b27, #0f351f); border-color: #4fe08a; box-shadow: inset 0 0 0 1px #2f9a5a, 0 8px 28px #0009; }
+.level-choice:hover, .level-choice:focus-visible { border-color: #a6ffc9; }
+.fkey, .akey { background: linear-gradient(145deg, #1a4b27, #0f351f); border-color: #4fe08a; box-shadow: inset 0 0 0 1px #2f9a5a; }
+.akey.del { border-color: #ff7d8f; }
+.fkey.down { background: #1f6130; border-color: #a6ffc9; }
+.fkey.down .fg { background: #165028; border-color: #a6ffc9; }
+.fkey.down .fg.c { background: #1f6130; }
+.fkey.down .fg.sel { background: #57ffb6; }
+.rank-row { background: #0e3019; border-color: #3fbf75; }
+button.rank-row:hover, button.rank-row:focus-visible { background: #1f6130; border-color: #a6ffc9; }
+
+/* ===== ボタンの背景を、ほんの少し暗く ===== */
+.btn, .help-button { background: #0f3520; }
+.btn:hover, .help-button:hover, .help-button:focus-visible { background: #1b562b; }
+.level-choice, .fkey, .akey { background: linear-gradient(145deg, #164222, #0c2e1b); }
+.fkey.down { background: #1b562b; }
+.fkey.down .fg { background: #134624; }
+.fkey.down .fg.c { background: #1b562b; }
+.fkey.down .fg.sel { background: #57ffb6; }
+.rank-row { background: #0b2a16; }
+button.rank-row:hover, button.rank-row:focus-visible { background: #1b562b; }
+
+/* ===== マウスを乗せたとき: はっきり明るく、まわりに少しグロー ===== */
+@media (hover: hover) {
+  .btn:hover, .help-button:hover, button.rank-row:hover, .akey:hover { background: #2f8a45; border-color: #d2ffe2; color: #fff; box-shadow: 0 0 14px #4fe08a99, 0 0 30px #2fc16a55, inset 0 0 0 1px #8dffb4; }
+  .level-choice:hover { background: linear-gradient(145deg, #2f8a45, #1d6a32); border-color: #d2ffe2; box-shadow: 0 0 16px #4fe08aaa, 0 0 38px #2fc16a66, inset 0 0 0 1px #8dffb4; }
+  .akey.del:hover { border-color: #ffb3bf; box-shadow: 0 0 14px #ff7d8f99, 0 0 30px #ff506b55, inset 0 0 0 1px #ffb3bf; }
+}
+
+/* ===== ホバーのグローは金色系 ===== */
+@media (hover: hover) {
+  .btn:hover, .help-button:hover, button.rank-row:hover, .akey:hover, .akey.del:hover { border-color: #ffe9a0; box-shadow: 0 0 14px #ffe27aaa, 0 0 30px #ffb62e66, inset 0 0 0 1px #ffe27a99; }
+  .level-choice:hover { border-color: #ffe9a0; box-shadow: 0 0 16px #ffe27acc, 0 0 38px #ffb62e77, inset 0 0 0 1px #ffe27a99; }
+}
+
+/* ===== ホバー: 輪郭は明るい緑、グローは金色で控えめ ===== */
+@media (hover: hover) {
+  .btn:hover, .help-button:hover, button.rank-row:hover, .akey:hover, .akey.del:hover { border-color: #d2ffe2; box-shadow: 0 0 8px #ffe27a77, 0 0 18px #ffb62e33, inset 0 0 0 1px #8dffb4; }
+  .level-choice:hover { border-color: #d2ffe2; box-shadow: 0 0 10px #ffe27a77, 0 0 22px #ffb62e33, inset 0 0 0 1px #8dffb4; }
+}
+
+/* ===== タイトル両脇のひし形: 交点のひし形 (金色の細い線でゆっくり回る) と同じ。大きさは 1.5 倍 ===== */
+.brand .gem { position: relative; width: 21px; height: 21px; background: none; box-shadow: none; transform: none; animation: gem-spin 7s linear infinite; }
+.brand .gem::before { content: ""; position: absolute; inset: 0; box-sizing: border-box; border: 2px solid #e8e070; transform: rotate(45deg); }
+
+/* ===== ホバーのグロー: もう少しだけ強く ===== */
+@media (hover: hover) {
+  .btn:hover, .help-button:hover, button.rank-row:hover, .akey:hover, .akey.del:hover { box-shadow: 0 0 10px #ffe27a99, 0 0 24px #ffb62e55, inset 0 0 0 1px #8dffb4; }
+  .level-choice:hover { box-shadow: 0 0 12px #ffe27a99, 0 0 28px #ffb62e55, inset 0 0 0 1px #8dffb4; }
+}
+
+/* ===== タイトルのひし形: さらに 1.8 倍、文字から少し離す。字間の余白 (最後の X の右) を打ち消して左右の距離をそろえる ===== */
+.brand { gap: 24px; }
+.brand h1 { margin-right: -.08em; }
+.brand .gem { width: 38px; height: 38px; }
+
+/* ===== タイトルのひし形は 7 割の大きさ (左右は同じ角度で回る) / RANK MATCH ボタンは高く、EASY〜ANY は低く ===== */
+.brand .gem { width: 27px; height: 27px; }
+.level-choice { min-height: 56px; padding-block: 12px; }
+.level-choice[data-level="rank"] { min-height: 82px; padding-block: 20px; }
+
+/* ===== ボタンの高さ: RANK MATCH をさらに高く、EASY〜ANY をさらに低く / タイトルとボタンの間を広げる ===== */
+.level-choice { min-height: 50px; padding-block: 10px; }
+.level-choice[data-level="rank"] { min-height: 94px; padding-block: 24px; }
+.title-view .brand, .brand { margin-bottom: 36px; }
+
+/* ===== MATCH START: 高さ 1.5 倍、両側に回るひし形 ===== */
+#rank-start { position: relative; padding-block: calc(13px * 1.5 + 5px); }
+#rank-start::before, #rank-start::after { content: ""; position: absolute; top: 50%; width: 22px; height: 22px; margin-top: -11px; box-sizing: border-box; border: 2px solid #e8e070; transform: rotate(45deg); }
+#rank-start::before { left: 18px; } #rank-start::after { right: 18px; }
+#rank-start::before, #rank-start::after { animation: gem-spin45 7s linear infinite; }
+@keyframes gem-spin45 { from { transform: rotate(45deg); } to { transform: rotate(405deg); } }
+
+/* ランクのまとめ: 1行目 RANK / RATING、2行目 WIN / LOSE / DRAW (1行に収まらなければ折り返す) */
+.rank-summary span { display: block; }
+/* 自分の行を見やすく: 明るい青の背景、白い文字 */
+.rank-list li.me .rank-row { border-color: #cfe0ff; background: #2f63c9; color: #fff; box-shadow: 0 0 14px #5b8dff88; }
+.rank-list li.me .rank-row .rk, .rank-list li.me .rank-row .rt { color: #e6efff; }
+
+/* MATCH START のひし形: 文字のすぐ脇に置く (ボタンの両端ではなく)。大きさは 1.2 倍 */
+#rank-start { display: flex; align-items: center; justify-content: center; gap: 26px; }
+#rank-start::before, #rank-start::after { position: static; flex: none; width: 26px; height: 26px; margin: 0; }
+
+/* MATCH START の文字を大きく */
+#rank-start { font-size: 30px; }
+
+/* ===== 対戦前の紹介: 左上にあなた、右下に相手 ===== */
+.vs-intro { position: fixed; z-index: 70; inset: 0; display: grid; grid-template: 1fr 1fr 1fr / 1fr; padding: 4vmin 5vmin; cursor: pointer; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 50%, #12301f 0, #050a0b 75%); }
+.vs-intro[hidden] { display: none; }
+.vs-intro::before { content: ""; position: absolute; left: -20%; right: -20%; top: 50%; height: 3px; background: linear-gradient(90deg, transparent, #e8e070, transparent); transform: rotate(-24deg); box-shadow: 0 0 18px #e8e070; }
+.vs-side { display: flex; flex-direction: column; gap: 6px; max-width: 100%; }
+.vs-you { grid-row: 1; align-items: flex-start; text-align: left; }
+.vs-com { grid-row: 3; align-items: flex-end; text-align: right; }
+.vs-intro .face.big { width: clamp(110px, 34vw, 200px); height: clamp(110px, 34vw, 200px); }
+.vs-name { font: clamp(34px, 11vw, 72px)/1.05 yodaka, monospace; letter-spacing: .06em; overflow-wrap: anywhere; }
+.vs-you .vs-name { color: #c4dbff; text-shadow: 0 0 18px #3d7be0; }
+.vs-com .vs-name { color: #ffc2cd; text-shadow: 0 0 18px #e0476a; }
+.vs-info { font: clamp(16px, 4.6vw, 26px) yodaka, monospace; letter-spacing: .08em; color: #d8fff0; }
+.vs-mid { grid-row: 2; align-self: center; justify-self: center; text-align: center; position: relative; }
+.vs-vs { font: clamp(70px, 24vw, 150px)/1 yodaka, monospace; color: #fff6a8; text-shadow: 0 0 12px #e8e070, 0 0 40px #e8b000, 0 5px 0 #a06a00; }
+.vs-rec { margin-top: 6px; font: clamp(18px, 5.4vw, 30px) yodaka, monospace; letter-spacing: .08em; color: #fff; text-shadow: 0 0 10px #000; }
+.vs-rec small { display: block; font-size: .62em; letter-spacing: .2em; color: #e8e070; }
+.vs-intro.go .vs-you { animation: vs-in-l .55s cubic-bezier(.2, 1.1, .3, 1) both; }
+.vs-intro.go .vs-com { animation: vs-in-r .55s cubic-bezier(.2, 1.1, .3, 1) .2s both; }
+.vs-intro.go .vs-mid { animation: vs-pop .5s cubic-bezier(.2, 1.6, .4, 1) .45s both; }
+@keyframes vs-in-l { from { transform: translate(-60vw, -20vh); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes vs-in-r { from { transform: translate(60vw, 20vh); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes vs-pop { from { transform: scale(.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* 対戦前の紹介: 斜めの線は無し / 上は左から、下は右から横に入る / VS は 6 割の大きさでグロー弱め */
+.vs-intro::before { display: none; }
+@keyframes vs-in-l { from { transform: translateX(-70vw); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes vs-in-r { from { transform: translateX(70vw); opacity: 0; } to { transform: none; opacity: 1; } }
+.vs-vs { font-size: clamp(42px, 14.4vw, 90px); text-shadow: 0 0 6px #e8e070aa, 0 0 18px #e8b00066, 0 3px 0 #a06a00; }
+
+/* 左側のキャラ (YOU) は、対戦前の紹介で左右反転して、相手のほうを向かせる */
+#vs-you-face { scale: -1 1; }
+
+/* キャラエディットの選択肢: 髪の色が暗いと見えないので、背景を明るく */
+.edit-option { background: #6f9684; border-color: #9fd0b8; }
+.edit-option.color { border-color: #e4fff1; }
+.edit-option:hover { border-color: #fff; }
+.edit-option { background: #384b42; border-color: #6a9c84; }
+.edit-option { background: #2a5a42; border-color: #4fbf8a; }

@@ -5,10 +5,11 @@
 // データはこのブラウザの localStorage に保存する (保存できない環境では、開いている間だけ覚える)
 
 export const PLAYER = "YOU";
-export const NEAR = 10; // 自分の順位の上下何人と戦うか
+export const NEAR = 30; // 自分の順位の上下何人と戦うか
 const KEY = "xwordx.rank.v1";
 const START_RATING = 1500;
-const K_PLAYER = 32, K_COM = 24; // 1戦での動きの大きさ
+const K_PLAYER = 96, K_COM_MATCH = 72; // あなたとの対戦での、1戦での動きの大きさ (大きいほど勝敗が順位に強く効く)
+const K_COM = 24; // COM どうしの毎日の更新での動きの大きさ
 const DRAW_RATE = 0.08; // COM 同士の対戦が引き分けになる割合
 const DAILY_MATCHES_PER_COM = 4; // 1日の更新で、COM 1人あたり何戦するか
 
@@ -52,6 +53,7 @@ export class RankBook {
       player: { rating: START_RATING, games: 0, wins: 0, losses: 0, draws: 0 },
       ratings,
       prevRanks: {}, // 前回の更新の直前の順位 (順位の上がり下がりの表示用)
+      h2h: {}, // 相手ごとの、あなたの対戦成績 { 名前: { w, l, d } }
       lastDaily: "", // 最後に COM 同士の更新をした日
       daily: null, // その更新の内容 { date, matches }
     };
@@ -61,6 +63,7 @@ export class RankBook {
     try {
       const s = JSON.parse(localStorage.getItem(KEY));
       if (s && s.v === 1 && s.player && s.ratings) {
+        if (!s.h2h) s.h2h = {};
         for (const c of this.roster) if (typeof s.ratings[c.name] !== "number") s.ratings[c.name] = initialRating(c.strength);
         return s;
       }
@@ -80,6 +83,9 @@ export class RankBook {
     rows.forEach((r, i) => (r.rank = i + 1));
     return rows;
   }
+
+  // あなたと、その相手との対戦成績
+  headToHead(name) { return this.state.h2h[name] || { w: 0, l: 0, d: 0 }; }
 
   playerRank() { return this.standings().find((r) => r.isPlayer).rank; }
 
@@ -104,8 +110,10 @@ export class RankBook {
     const e = expected(ra, rb);
     const dp = K_PLAYER * (result - e);
     p.rating = ra + dp;
-    this.state.ratings[oppName] = rb - K_COM * (result - e);
+    this.state.ratings[oppName] = rb - K_COM_MATCH * (result - e);
     p.games++;
+    const h = (this.state.h2h[oppName] ||= { w: 0, l: 0, d: 0 });
+    if (result === 1) h.w++; else if (result === 0) h.l++; else h.d++;
     if (result === 1) p.wins++; else if (result === 0) p.losses++; else p.draws++;
     this.save();
     const newRank = this.playerRank();

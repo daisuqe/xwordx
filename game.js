@@ -1,5 +1,5 @@
 import { Dict, canon, SMALL_OF } from "./dict.js";
-import { RankBook, todayString } from "./rank.js";
+import { RankBook, todayString, NEAR } from "./rank.js";
 
 let SIZE = 11; // 盤面の大きさ。レベルごとに変わる (PROFILES.size)
 const MIN_LEN = 2;
@@ -322,7 +322,7 @@ function renderRank() {
   if (!rankBook) return;
   const { me, rows } = rankBook.nearby(); // 1 位から最下位まで全員
   const st = rankBook.state.player;
-  $("rank-summary").textContent = `RANK ${me.rank} / ${roster.length + 1}   RATING ${Math.round(me.rating)}   W ${st.wins}  L ${st.losses}  D ${st.draws}`;
+  $("rank-summary").innerHTML = `<span>RANK ${me.rank} / ${roster.length + 1}   RATING ${Math.round(me.rating)}</span><span>WIN ${st.wins} / LOSE ${st.losses} / DRAW ${st.draws}</span>`;
   const daily = rankBook.state.daily;
   $("rank-daily").textContent = daily && daily.date === todayString() ? `TODAY: ${daily.matches} COM MATCHES PLAYED` : "";
   const list = $("rank-list");
@@ -795,7 +795,7 @@ function fxIsland(cells, color) {
 
 async function runSequence(bd, id) {
   const alive = () => id === seqId && !skipped;
-  const col = bd.who === P ? "#8db8ff" : "#ff8da1";
+  const col = bd.who === P ? "#c4dbff" : "#ffc2cd"; // 自分の色を明るくした文字色
   let tally = 0;
   const tallyEl = fxEl("fx-tally", 0, 0);
   const setTally = (tag, text, color) => {
@@ -1288,14 +1288,34 @@ for (const btn of document.querySelectorAll(".level-choice")) {
     else startLevel(btn.dataset.level);
   });
 }
-// ランクマッチ: 相手は選べない。試合開始を押すと、自分の順位の上下10人から1人が決まる。順位の高い方が先攻
+// ランクマッチ: 相手は選べない。試合開始を押すと、自分の順位の上下30位以内から1人が決まる。順位の高い方が先攻
+// 対戦前の紹介: 左上にあなた、右下に相手、真ん中に VS とこれまでの対戦成績。少し見せてから (タップで早送り) 試合を始める
+let vsTimer = 0, vsGo = null;
+function showVsIntro(pick, me, first) {
+  const c = roster.find((x) => x.name === pick.name), h = rankBook.headToHead(pick.name);
+  $("vs-you-face").replaceChildren();
+  paintPlayerFace($("vs-you-face"));
+  $("vs-you-name").textContent = avatar.name;
+  $("vs-you-info").textContent = `RANK ${me.rank}  RATING ${Math.round(me.rating)}`;
+  $("vs-com-face").innerHTML = faceHTML(c);
+  $("vs-com-name").textContent = c.name;
+  $("vs-com-info").textContent = `RANK ${pick.rank}  RATING ${Math.round(pick.rating)}`;
+  $("vs-rec").innerHTML = h.w + h.l + h.d ? `<small>HEAD TO HEAD</small>WIN ${h.w} / LOSE ${h.l} / DRAW ${h.d}` : "<small>HEAD TO HEAD</small>FIRST MATCH";
+  const box = $("vs-intro");
+  box.hidden = false;
+  box.classList.remove("go"); void box.offsetWidth; box.classList.add("go"); // アニメーションを最初から
+  vsGo = () => { clearTimeout(vsTimer); vsGo = null; box.hidden = true; startRank(pick.name, first); };
+  vsTimer = setTimeout(vsGo, FAST ? 150 : 3200);
+}
+$("vs-intro").addEventListener("click", () => vsGo?.());
+
 $("rank-start").addEventListener("click", () => {
   if (!dict || !rankBook) return;
   ensureAudio();
   const { me, rows } = rankBook.nearby(); // 1 位から最下位まで全員
-  const pool = rows.filter((r) => !r.isPlayer);
+  const pool = rows.filter((r) => !r.isPlayer && Math.abs(r.rank - me.rank) <= NEAR); // 上下 NEAR 位以内
   const pick = pool[Math.floor(Math.random() * pool.length)];
-  startRank(pick.name, pick.rank < me.rank ? C : P);
+  showVsIntro(pick, me, pick.rank < me.rank ? C : P);
 });
 $("rank-back").addEventListener("click", () => history.back());
 
@@ -1475,12 +1495,20 @@ function showVictory(a, b, rk) {
   fx.replaceChildren();
   const rand = (lo, hi) => lo + Math.random() * (hi - lo);
   const colors = ["#e8e070", "#8db8ff", "#ff8da1", "#cfa6ff", "#57ffb6", "#ffffff"];
-  for (let i = 0; i < 90; i++) { // 紙吹雪
+  // 紙吹雪: 大きさは 1.5 倍、落ちる速さは 6 割 (= 落ちるのにかかる時間は 1/0.6 倍)
+  for (let i = 0; i < 90; i++) {
     const c = document.createElement("i");
     c.className = "conf";
-    c.style.cssText = `left:${rand(0, 100)}%;width:${rand(6, 12)}px;height:${rand(10, 20)}px;background:${colors[i % colors.length]};` +
-      `animation-delay:${rand(0, 2.5)}s;animation-duration:${rand(2.6, 5)}s;--r:${rand(-720, 720)}deg;--x:${rand(-60, 60)}px`;
+    c.style.cssText = `left:${rand(0, 100)}%;width:${rand(9, 18)}px;height:${rand(15, 30)}px;background:${colors[i % colors.length]};` +
+      `animation-delay:${rand(0, 4)}s;animation-duration:${rand(2.6, 5) / 0.6}s;--r:${rand(-720, 720)}deg;--x:${rand(-60, 60)}px`;
     fx.appendChild(c);
+  }
+  for (let i = 0; i < 18; i++) { // ゆらゆら揺れながら落ちる紙
+    const w = document.createElement("i");
+    w.className = "flut";
+    w.style.cssText = `left:${rand(3, 97)}%;width:${rand(14, 22)}px;height:${rand(20, 32)}px;background:${colors[i % colors.length]};` +
+      `animation-delay:${rand(0, 5)}s;animation-duration:${rand(7, 11)}s,${rand(1.6, 2.6)}s,${rand(1.1, 1.8)}s;--sway:${rand(30, 70)}px`;
+    fx.appendChild(w);
   }
   const burst = () => { // 花火: 中心から放射状に飛び散る
     const cx = rand(15, 85), cy = rand(12, 55), col = colors[Math.floor(Math.random() * colors.length)];
