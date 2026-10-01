@@ -93,7 +93,7 @@ export class RankBook {
   nearby() {
     const all = this.standings();
     const me = all.find((r) => r.isPlayer);
-    return { me, rows: all.filter((r) => Math.abs(r.rank - me.rank) <= NEAR).map((r) => ({ ...r, change: this.rankChange(r.name, r.rank) })) };
+    return { me, rows: all.map((r) => ({ ...r, change: this.rankChange(r.name, r.rank) })) };
   }
 
   // 対戦結果を反映する。result: 1=あなたの勝ち, 0.5=引き分け, 0=あなたの負け

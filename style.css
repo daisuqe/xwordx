@@ -447,3 +447,10 @@ body:not(.keypad) .game-view .sc .face { width: 64px; height: 64px; }
 .game-view.over .entry, .game-view.over .kana-pad { opacity: .3; filter: brightness(.55) saturate(.6); pointer-events: none; transition: opacity .6s, filter .6s; }
 .game-view.over .entry::after { display: none; }
 #word:disabled { cursor: not-allowed; }
+
+/* ===== ランクマッチ: 順位表の部分だけスクロールする ===== */
+.rank-view:not([hidden]) { display: flex; flex-direction: column; height: calc(100vh - 64px); height: calc(100dvh - 64px); }
+.rank-list { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.rank-list { scrollbar-width: none; -ms-overflow-style: none; cursor: grab; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+.rank-list::-webkit-scrollbar { display: none; }
+.rank-list.dragging { cursor: grabbing; user-select: none; }

@@ -302,10 +302,10 @@ function startRank(name, first) {
   beginGame("RANK MATCH");
 }
 
-// ランクマッチの一覧: 自分の順位の上下 10 人。押すとその相手と対戦する
+// ランクマッチの一覧: 1 位から全員 (一覧の中だけスクロール)。押すとその相手と対戦する
 function renderRank() {
   if (!rankBook) return;
-  const { me, rows } = rankBook.nearby();
+  const { me, rows } = rankBook.nearby(); // 1 位から最下位まで全員
   const st = rankBook.state.player;
   $("rank-summary").textContent = `RANK ${me.rank} / ${roster.length + 1}   RATING ${Math.round(me.rating)}   W ${st.wins}  L ${st.losses}  D ${st.draws}`;
   const daily = rankBook.state.daily;
@@ -323,7 +323,10 @@ function renderRank() {
     list.appendChild(li);
   }
   list.querySelectorAll(".face.player").forEach(paintPlayerFace);
-  requestAnimationFrame(() => list.querySelector(".me")?.scrollIntoView({ block: "center" }));
+  requestAnimationFrame(() => {
+    const row = list.querySelector(".me");
+    if (row) list.scrollTop = row.offsetTop - list.offsetTop - (list.clientHeight - row.offsetHeight) / 2; // 最初は自分が真ん中
+  });
 }
 
 // 対局が終わったとき (ランクマッチなら) レーティングに反映する。結果の文を返す
@@ -1276,7 +1279,7 @@ for (const btn of document.querySelectorAll(".level-choice")) {
 $("rank-start").addEventListener("click", () => {
   if (!dict || !rankBook) return;
   ensureAudio();
-  const { me, rows } = rankBook.nearby();
+  const { me, rows } = rankBook.nearby(); // 1 位から最下位まで全員
   const pool = rows.filter((r) => !r.isPlayer);
   const pick = pool[Math.floor(Math.random() * pool.length)];
   startRank(pick.name, pick.rank < me.rank ? C : P);
@@ -1528,4 +1531,42 @@ if (new URLSearchParams(location.search).has("debug")) {
       return res.ok ? { ok: true, words: res.words, points: res.points, intersections: res.intersections, overlap: res.overlap, runs: res.runs } : { ok: false, error: res.error };
     },
   };
+}
+
+// ランクの一覧: マウスでもドラッグでスクロールでき、離したあとは慣性でゆっくり止まる (タッチは標準の慣性スクロール)
+{
+  const list = $("rank-list");
+  let down = false, startY = 0, startTop = 0, moved = false, lastY = 0, lastT = 0, vel = 0, raf = 0;
+  list.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "touch") return;
+    cancelAnimationFrame(raf);
+    down = true; moved = false; startY = lastY = e.clientY; startTop = list.scrollTop; lastT = performance.now(); vel = 0;
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    if (!moved && Math.abs(e.clientY - startY) < 4) return;
+    moved = true;
+    list.classList.add("dragging");
+    list.scrollTop = startTop - (e.clientY - startY);
+    const now = performance.now(), dt = Math.max(1, now - lastT);
+    vel = 0.8 * vel + 0.2 * ((lastY - e.clientY) / dt); // px/ms
+    lastY = e.clientY; lastT = now;
+  });
+  const up = () => {
+    if (!down) return;
+    down = false;
+    list.classList.remove("dragging");
+    if (performance.now() - lastT > 80) vel = 0; // 止めてから離したら慣性なし
+    let prev = performance.now();
+    const step = (t) => {
+      const dt = t - prev; prev = t;
+      list.scrollTop += vel * dt;
+      vel *= Math.pow(0.995, dt); // だんだん遅くなる
+      if (Math.abs(vel) > 0.02) raf = requestAnimationFrame(step);
+    };
+    if (moved) raf = requestAnimationFrame(step);
+  };
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
+  list.addEventListener("click", (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
 }
