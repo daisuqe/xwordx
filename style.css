@@ -434,3 +434,16 @@ body:not(.keypad) .game-view .sc .face { width: 64px; height: 64px; }
 /* ===== スコア枠の名前と点数: どちらも、これまでの 1.5 倍 (枠に収まらなければ game.js の fitNames が --ns で小さくする) ===== */
 .game-view .sc .who { font-size: calc(clamp(12px, 3.9vw, 18px) * 2.25 * var(--ns, 1)); }
 .game-view .sc b { font-size: calc(clamp(22px, 7.5vw, 34px) * 1.5 * var(--ns, 1)); }
+
+/* ===== 1ターンの最後に出る加点 (+27 など): 金色のグロー ===== */
+.fx-total { color: #ffe27a !important; text-shadow: 0 0 14px #ffe27a, 0 0 34px #ffb62e, 0 0 60px rgba(255, 182, 46, .6), 0 4px 0 #000a; }
+.fx-total .tag { color: #ffe9a8; text-shadow: none; }
+
+/* ===== メッセージ: 1行に収まらないときは、スクロールさせる ===== */
+.game-view #message { text-overflow: clip; overflow: hidden; white-space: nowrap; }
+.msg-text { display: inline-block; white-space: nowrap; will-change: transform; }
+
+/* ===== 試合が終わったら、WORD 入力欄とフリックのキーは暗くして、入力できなくする ===== */
+.game-view.over .entry, .game-view.over .kana-pad { opacity: .3; filter: brightness(.55) saturate(.6); pointer-events: none; transition: opacity .6s, filter .6s; }
+.game-view.over .entry::after { display: none; }
+#word:disabled { cursor: not-allowed; }

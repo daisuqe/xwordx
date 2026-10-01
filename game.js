@@ -13,7 +13,7 @@ const COM_MAX_EVAL = 2500; // 評価する候補の上限 (多いときは無作
 const FAST = new URLSearchParams(location.search).has("fast"); // 動作確認用: 待ち時間を無くす
 const COM_THINK_MS = FAST ? 0 : 3000; // COM が手を打つまでにかける時間の下限 (ms)
 const POP_STEP = 380; // 得点演出: 1行ごとの間隔 (ms)
-const POP_HOLD = 1000; // 合計を出してから消えるまで (ms)
+const POP_HOLD = FAST ? 1000 : 2600; // 合計を出してから消えるまで (ms)
 const POP_MIN_MS = FAST ? 0 : 3000; // 得点の結果を最低でも表示する時間 (ms)。この間はタップで飛ばせない
 const START_KANA = [..."あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわ"];
 const DIRS = { right: [0, 1], down: [1, 0] };
@@ -338,11 +338,38 @@ const toHira = (s) =>
   s.replace(/[ァ-ヶ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60)).replace(/\s+/g, "");
 const currentWord = () => toHira(wordEl.value);
 
+// メッセージが1行に収まらないときは、5秒後にゆっくり横へスクロールする。
+// 最後の文字が見えたら5秒止まり、そのあと先頭の文字から表示し直して、また5秒後に繰り返す。
+const MSG_WAIT_MS = 5000; // スクロールを始めるまでの待ち / 最後まで見えたあとの停止
+const MSG_SPEED = 38; // スクロールの速さ (px/秒)
+const msgText = document.createElement("span");
+msgText.className = "msg-text";
+msgEl.append(msgText);
+let msgAnim = null;
+function scrollMessage() {
+  msgAnim?.cancel();
+  msgAnim = null;
+  const over = msgText.getBoundingClientRect().width - msgEl.clientWidth; // はみ出している長さ
+  if (over <= 1 || FAST) return;
+  const move = (over / MSG_SPEED) * 1000;
+  const cycle = MSG_WAIT_MS + move + MSG_WAIT_MS;
+  msgAnim = msgText.animate(
+    [
+      { transform: "translateX(0)", offset: 0 },
+      { transform: "translateX(0)", offset: MSG_WAIT_MS / cycle }, // 5秒待つ
+      { transform: `translateX(${-over}px)`, offset: (MSG_WAIT_MS + move) / cycle }, // ゆっくり最後までスクロール
+      { transform: `translateX(${-over}px)`, offset: 1 }, // 最後の文字が見えたまま5秒止まる (そのあと先頭に戻る)
+    ],
+    { duration: cycle, iterations: Infinity, easing: "linear" },
+  );
+}
 function say(text, bad = false, good = false) {
-  msgEl.textContent = text;
+  msgText.textContent = text;
   msgEl.classList.toggle("bad", bad);
   msgEl.classList.toggle("ok", good);
+  scrollMessage();
 }
+new ResizeObserver(() => scrollMessage()).observe(msgEl); // 窓の大きさが変わったら、はみ出しを測り直す
 
 // 入力中の単語が辞書にあるかを、リアルタイムでステータス (一番下のメッセージ) に出す
 function updateWordStatus() {
@@ -444,6 +471,9 @@ function render(preview) {
     $(bit === P ? "sp" : "sc").textContent = scoreHold ? scoreHold[bit] : total(bit); // 演出中は、点が数えられるのに合わせて増やす
     $(bit === P ? "dp" : "dc").textContent = [`WORD ${wordPts[bit]}`, `CROSS ${crossPts[bit]}`, `ISLAND ${islandPts(owner, bit)}`].join("\n");
   }
+  // 試合が終わったら、WORD 入力欄とフリックのキーを暗くして、入力できなくする
+  $("game-view").classList.toggle("over", over);
+  wordEl.disabled = over;
   renderMarks();
   fitNames(); // 点数の桁数が変わると、名前に使える幅も変わる
   $("pass").disabled = over || turn !== P;
