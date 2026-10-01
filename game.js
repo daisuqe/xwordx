@@ -310,7 +310,8 @@ let rankCentered = false;
 function centerRank() {
   const list = $("rank-list"), row = list.querySelector(".me");
   if (!row || $("rank-view").hidden || rankCentered) return;
-  list.scrollTop = row.offsetTop - list.offsetTop - (list.clientHeight - row.offsetHeight) / 2;
+  const lr = list.getBoundingClientRect(), rr = row.getBoundingClientRect();
+  list.scrollTop += rr.top - lr.top - (list.clientHeight - rr.height) / 2; // 実際の位置の差で測る
 }
 {
   const list = $("rank-list");
