@@ -145,6 +145,7 @@ function showView(name) {
   for (const v of ["title", "help", "edit", "rank", "game"]) $(`${v}-view`).hidden = v !== name;
   document.body.classList.toggle("in-game", name === "game"); // 対局中は 1 画面に収める (スクロールしない)
   if (name !== "game") window.scrollTo(0, 0);
+  if (name === "rank") { centerRank(); requestAnimationFrame(centerRank); setTimeout(centerRank, 250); }
 }
 
 // 画面の縦方向の割り当て。優先順位:
@@ -303,6 +304,19 @@ function startRank(name, first) {
 }
 
 // ランクマッチの一覧: 1 位から全員 (一覧の中だけスクロール)。押すとその相手と対戦する
+// 一覧を開いた直後は、自分の行を真ん中に出す。画面の大きさが決まる前に測らないよう、
+// 表示されたあとや大きさが変わったときにも、利用者が触るまでは合わせ直す
+let rankCentered = false;
+function centerRank() {
+  const list = $("rank-list"), row = list.querySelector(".me");
+  if (!row || $("rank-view").hidden || rankCentered) return;
+  list.scrollTop = row.offsetTop - list.offsetTop - (list.clientHeight - row.offsetHeight) / 2;
+}
+{
+  const list = $("rank-list");
+  new ResizeObserver(centerRank).observe(list);
+  for (const t of ["pointerdown", "wheel", "touchstart"]) list.addEventListener(t, () => { rankCentered = true; }, { passive: true });
+}
 function renderRank() {
   if (!rankBook) return;
   const { me, rows } = rankBook.nearby(); // 1 位から最下位まで全員
@@ -323,10 +337,8 @@ function renderRank() {
     list.appendChild(li);
   }
   list.querySelectorAll(".face.player").forEach(paintPlayerFace);
-  requestAnimationFrame(() => {
-    const row = list.querySelector(".me");
-    if (row) list.scrollTop = row.offsetTop - list.offsetTop - (list.clientHeight - row.offsetHeight) / 2; // 最初は自分が真ん中
-  });
+  rankCentered = false;
+  centerRank();
 }
 
 // 対局が終わったとき (ランクマッチなら) レーティングに反映する。結果の文を返す
