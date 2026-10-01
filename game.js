@@ -42,7 +42,7 @@ const EASY_BONUS = 0.3; // 段が1つ易しいごとに評価に足す点
 function profileFromStrength(strength) {
   const t = Math.min(1, Math.max(0, (strength - 15) / 80)); // 0 (弱い) 〜 1 (強い)
   return {
-    name: "RANK MATCH", size: 9,
+    name: "RANK MATCH", size: 7,
     lv: Math.round(1 + t * 8), maxLen: Math.round(4 + t * 4),
     crossOnly: t < 0.2, random: t < 0.12,
     island: t * 1.2, crossBonus: (1 - t) * 2, noise: 3 - t * 2.5, pick: Math.max(1, Math.round(20 - t * 18)),
@@ -616,6 +616,7 @@ function check(raw, r, c, dir, limit = 9) {
       const text = run.idx.map((k, j) => (j === 0 ? letters[(k / SIZE) | 0][k % SIZE] || cells.get(k) : disp.get(k) ?? shown((k / SIZE) | 0, k % SIZE))).join("");
       const lv = dict.level(run.s);
       if (lv < 0) return fail(`隣り合ってできる語が辞書にありません: ${text}`);
+      if (used.has(run.s) || keys.includes(run.s)) return fail(`使用済みです: ${text}`); // 隣り合ってできる語も、同じ語は2回使えない
       if (lv > limit) return fail(`隣り合ってできる語が難しすぎます: ${text}`);
       words.push(text);
       keys.push(run.s);
