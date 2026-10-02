@@ -1492,8 +1492,7 @@ $("next-match").addEventListener("click", () => {
   if (!dict || !rankBook || !over || mode !== "rank") return;
   ensureAudio();
   hideVictory();
-  const { me, rows } = rankBook.nearby();
-  const pool = rows.filter((r) => !r.isPlayer && Math.abs(r.rank - me.rank) <= NEAR);
+  const { me, rows: pool } = rankBook.opponentPool(); // MATCH START と同じ決め方
   const pick = pool[Math.floor(Math.random() * pool.length)];
   showVsIntro(pick, me, pick.rank < me.rank ? C : P);
 });
