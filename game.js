@@ -1479,9 +1479,10 @@ function renderHistory() {
   for (const h of rows) {
     const c = roster.find((x) => x.name === h.opp);
     const res = h.result === 1 ? ["WIN", "win"] : h.result === 0 ? ["LOSE", "lose"] : ["DRAW", "draw"];
+    const mv = h.oldRank === undefined || h.oldRank === h.newRank ? ["－", "draw"] : h.newRank < h.oldRank ? ["▲", "win"] : ["▼", "lose"]; // 順位が上がったか下がったか
     const li = document.createElement("li");
     li.innerHTML = `<div class="rank-row hist-row"><span class="rk">${h.oppRank}</span><span class="face">${c ? faceHTML(c) : ""}</span>` +
-      `<span class="nm">${h.opp}</span><span class="hres ${res[1]}">${res[0]}</span><span class="rt">${h.score}</span><i class="hd">${(h.date || "").slice(5).replace("-", "/")}</i></div>`;
+      `<span class="nm">${h.opp}</span><span class="hres ${res[1]}">YOU ${res[0]}</span><span class="rt ${mv[1]}">${h.newRank !== undefined ? `${mv[0]}${h.newRank}` : ""}</span><i class="hd">${(h.date || "").slice(5).replace("-", "/")}</i></div>`;
     list.appendChild(li);
   }
 }

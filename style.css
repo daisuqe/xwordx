@@ -652,3 +652,14 @@ button.rank-row:hover, button.rank-row:focus-visible { background: #1b562b; }
 .fx-total b::after { inset: -4% -8%; background: radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, .6) 0, rgba(255, 252, 230, .28) 45%, transparent 70%); }
 .fx-total { animation: fx-total-in .5s cubic-bezier(.2, 1.6, .4, 1) both, fx-total-flash .55s ease-out both; }
 @keyframes fx-total-flash { 0% { filter: brightness(2.4) saturate(.6); } 100% { filter: none; } }
+/* 履歴の行: 狭い画面でも相手の名前が入るよう、文字と間隔を詰める */
+.hist-row { grid-template-columns: 1.8em 32px minmax(0, 1fr) auto auto auto; gap: 6px; padding: 4px 6px; font-size: 16px; letter-spacing: .02em; }
+.hist-row .hres { font-size: 13px; letter-spacing: .02em; }
+.hist-row .rt { font-size: 13px; }
+.hist-row .hd { font-size: 11px; }
+.hist-row .face { width: 32px; height: 32px; }
+.hist-row .hres .you { color: #8db8ff; font-weight: normal; }
+.hist-row .hres .win, .hist-row .rt.win { color: #ffe27a; }
+.hist-row .hres .lose, .hist-row .rt.lose { color: var(--red-text); }
+.hist-row .hres .draw, .hist-row .rt.draw { color: #b4d8c8; }
+.hist-row .hres.win { color: #ffe27a; } .hist-row .hres.lose { color: var(--red-text); } .hist-row .hres.draw { color: #b4d8c8; }
