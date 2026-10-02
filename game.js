@@ -32,18 +32,23 @@ const NAME = { [P]: "YOU", [C]: "COM" };
 //   pick      : 評価の上位いくつからランダムに選ぶか
 const PROFILES = {
   easy: { name: "EASY", size: 7, lv: 1, maxLen: 5, crossOnly: true, random: true, pick: 1 },
-  normal: { name: "NORMAL", size: 9, lv: 3, maxLen: 6, crossOnly: false, island: 0.3, crossBonus: 2, noise: 3, pick: 20 },
+  normal: { name: "NORMAL", size: 7, lv: 3, maxLen: 6, crossOnly: false, island: 0.3, crossBonus: 2, noise: 3, pick: 20 },
   hard: { name: "HARD", size: 9, lv: 6, maxLen: 7, crossOnly: false, island: 1, crossBonus: 0, noise: 1, pick: 15 },
   any: { name: "ANY", size: 9, lv: 9, maxLen: 8, crossOnly: false, island: 1.2, crossBonus: 0, noise: 0.5, pick: 8 },
 };
 const EASY_BONUS = 0.3; // 段が1つ易しいごとに評価に足す点
 
 // ランクマッチの COM の性格: 相手のキャラクターの強さ (18〜95) から連続的に決める
-function profileFromStrength(strength) {
-  const t = Math.min(1, Math.max(0, (strength - 15) / 80)); // 0 (弱い) 〜 1 (強い)
+// rank (相手の現在の順位): 1〜5 位は強さのまま、6 位以降は強さを抑え、6〜25 位は難しい語 (段 5 以上) を使わない
+const TOP_RANKS = 5, MID_RANKS = 25, MID_MAX_LV = 4, LOWER_MAX_T = 0.5;
+function profileFromStrength(strength, rank = 99) {
+  let t = Math.min(1, Math.max(0, (strength - 15) / 80)); // 0 (弱い) 〜 1 (強い)
+  if (rank > TOP_RANKS) t = Math.min(t, LOWER_MAX_T);
+  let lv = Math.round(1 + t * 8);
+  if (rank > TOP_RANKS && rank <= MID_RANKS) lv = Math.min(lv, MID_MAX_LV);
   return {
     name: "RANK MATCH", size: 7,
-    lv: Math.round(1 + t * 8), maxLen: Math.round(4 + t * 4),
+    lv, maxLen: Math.round(4 + t * 4),
     crossOnly: t < 0.2, random: t < 0.12,
     island: t * 1.2, crossBonus: (1 - t) * 2, noise: 3 - t * 2.5, pick: Math.max(1, Math.round(20 - t * 18)),
   };
@@ -73,7 +78,6 @@ const rankBook = roster.length ? new RankBook(roster) : null;
 if (rankBook) rankBook.dailyUpdate(); // 1日の最初の起動なら、COM 同士の対戦で順位を入れ替える
 let rankRecorded = false; // この対局のランク結果を反映済みか
 let rankFirst = P; // ランクマッチの先攻 (順位の高い方)
-const RANK_PENALTY_MOVES = 10; // ランクマッチは、置かれた手 (2人ぶん) がこの数に達してから抜けると 1 ポイント減る
 let moveCount = 0; // この対局で置かれた手の数 (パスは数えない)
 
 // ---------- あなたのキャラクター (キャラクターエディット) ----------
@@ -299,7 +303,8 @@ function startRank(name, first) {
   mode = "rank";
   rankFirst = first; // 順位の高い方が先攻
   opponent = roster.find((c) => c.name === name);
-  profile = profileFromStrength(opponent.strength);
+  const oppRank = rankBook?.standings().find((r) => r.name === name)?.rank;
+  profile = profileFromStrength(opponent.strength, oppRank);
   beginGame("RANK MATCH");
 }
 
@@ -1421,12 +1426,11 @@ function navigate(name) {
   showView(name);
 }
 let leaving = false; // 対局を抜けると確認済み
-// 抜けるときに確認が必要な対局か。1 手でも打っていたら (ランクマッチは抜けるとキャンセル。RANK_PENALTY_MOVES 手以降は 1 ポイント減る)
+// 抜けるときに確認が必要な対局か。1 手でも打っていたら (ランクマッチは抜けるとキャンセルになり、順位には影響しない)
 const gameInProgress = () => currentView === "game" && !over && !leaving && logEl.children.length > 0;
-const leavePenalty = () => mode === "rank" && moveCount >= RANK_PENALTY_MOVES;
 function askLeave() {
   const ranked = mode === "rank";
-  $("leave-text").textContent = ranked ? (leavePenalty() ? "MENUに戻りますか？（1ポイント減ります）" : "MENUに戻りますか？") : "LEAVE THIS GAME?";
+  $("leave-text").textContent = ranked ? "MENUに戻りますか？" : "LEAVE THIS GAME?";
   $("leave-text").classList.toggle("jp", ranked);
   $("leave-confirm").hidden = false;
 }
@@ -1449,7 +1453,6 @@ $("menu-back").addEventListener("click", () => {
 });
 $("leave-yes").addEventListener("click", () => {
   $("leave-confirm").hidden = true;
-  if (leavePenalty() && gameInProgress()) rankBook.penalty(1); // ランクマッチを 10 手目以降に抜けたら 1 ポイント減
   leaving = true;
   history.back();
 });

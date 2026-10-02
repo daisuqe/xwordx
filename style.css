@@ -154,6 +154,7 @@ body:not(.ready) .level-choice { opacity: .4; pointer-events: none; }
 .help-lang { min-width: 108px; }
 .help-body[lang="ja"] { --jp: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans JP", sans-serif; }
 .help-body[lang="ja"] .help-title { font-family: yodaka, monospace; font-weight: 400; letter-spacing: .1em; }
+.help-body[lang="ja"] .help-lead { margin: 22px 0; font: 16px/1.9 var(--jp); letter-spacing: .03em; }
 .help-body[lang="ja"] .help-block { font: 16px/1.9 var(--jp); letter-spacing: .03em; }
 .help-body[lang="ja"] .help-block h3 { font: 700 20px var(--jp); letter-spacing: .1em; }
 .help-body[lang="ja"] .island-table th, .help-body[lang="ja"] .island-table td { font: 15px var(--jp); }
