@@ -367,7 +367,7 @@ button.rank-row:hover, button.rank-row:focus-visible { border-color: #57ffb6; ba
 @keyframes tally-bump { 0% { transform: translateX(-50%) scale(1.25); } 100% { transform: translateX(-50%) scale(1); } }
 .fx-total { position: absolute; transform: translate(-50%, -50%); text-align: center; font-family: yodaka, monospace; text-shadow: 0 0 20px currentColor, 0 4px 0 #000a; animation: total-in .5s cubic-bezier(.2, 1.6, .4, 1) both; z-index: 40; }
 .fx-total .tag { display: block; font-size: 16px; letter-spacing: .3em; color: var(--dim); text-shadow: none; }
-.fx-total b { display: block; font-size: clamp(72px, 26vw, 150px); line-height: 1; }
+.fx-total b { display: block; font-size: clamp(110px, 40vw, 240px); line-height: 1; }
 .sc b.bump { animation: tally-num .25s ease-out; }
 @keyframes tally-num { 0% { transform: scale(1.5); filter: brightness(2); } 100% { transform: scale(1); filter: brightness(1); } }
 
@@ -431,8 +431,8 @@ body:not(.keypad) .game-view .sc .face { width: 64px; height: 64px; }
 .game-view .sc b { font-size: calc(clamp(22px, 7.5vw, 34px) * 1.5 * var(--ns, 1)); }
 
 /* ===== 1ターンの最後に出る加点 (+27 など): 金色のグロー ===== */
-.fx-total { text-shadow: 0 0 12px #e8e070, 0 0 40px #e8b000, 0 4px 0 #000a; } /* グローは金色、文字色は自分の色を明るくしたもの (game.js が指定) */
-.fx-total .tag { color: #ffe9a8; text-shadow: none; }
+.fx-total { text-shadow: 0 4px 0 #000a; filter: drop-shadow(0 0 28px #e8b000cc) drop-shadow(0 0 64px #e8b000aa) drop-shadow(0 0 110px #e8b00077); } /* グローは金色、文字色は自分の色を明るくしたもの (game.js が指定) */
+.fx-total .tag { font-size: 22px; color: #ffe9a8; text-shadow: none; }
 
 /* ===== メッセージ: 1行に収まらないときは、スクロールさせる ===== */
 .game-view #message { text-overflow: clip; overflow: hidden; white-space: nowrap; }
