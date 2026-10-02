@@ -73,7 +73,7 @@ const rankBook = roster.length ? new RankBook(roster) : null;
 if (rankBook) rankBook.dailyUpdate(); // 1日の最初の起動なら、COM 同士の対戦で順位を入れ替える
 let rankRecorded = false; // この対局のランク結果を反映済みか
 let rankFirst = P; // ランクマッチの先攻 (順位の高い方)
-const RANK_FREE_MOVES = 10; // ランクマッチは、置かれた手 (2人ぶん) がこの数に達するまでは、抜けても負けにならない
+const RANK_PENALTY_MOVES = 10; // ランクマッチは、置かれた手 (2人ぶん) がこの数に達してから抜けると 1 ポイント減る
 let moveCount = 0; // この対局で置かれた手の数 (パスは数えない)
 
 // ---------- あなたのキャラクター (キャラクターエディット) ----------
@@ -489,6 +489,7 @@ function render(preview) {
   }
   // 試合が終わったら、WORD 入力欄とフリックのキーを暗くして、入力できなくする
   $("game-view").classList.toggle("over", over);
+  $("game-view").classList.toggle("rank-over", over && mode === "rank"); // ランクマッチ終了: フリックのキーを消して NEXT MATCH を出す
   wordEl.disabled = over;
   renderMarks();
   fitNames(); // 点数の桁数が変わると、名前に使える幅も変わる
@@ -615,7 +616,7 @@ function check(raw, r, c, dir, limit = 9) {
       // 表示用の綴り。単語の先頭は小さい字にならないので、大きい字にそろえる
       const text = run.idx.map((k, j) => (j === 0 ? letters[(k / SIZE) | 0][k % SIZE] || cells.get(k) : disp.get(k) ?? shown((k / SIZE) | 0, k % SIZE))).join("");
       const lv = dict.level(run.s);
-      if (lv < 0) return fail(`隣り合ってできる語が辞書にありません: ${text}`);
+      if (lv < 0) return fail(`名詞辞書にありません: ${text}`);
       if (used.has(run.s) || keys.includes(run.s)) return fail(`使用済みです: ${text}`); // 隣り合ってできる語も、同じ語は2回使えない
       if (lv > limit) return fail(`隣り合ってできる語が難しすぎます: ${text}`);
       words.push(text);
@@ -1319,6 +1320,16 @@ $("rank-start").addEventListener("click", () => {
   showVsIntro(pick, me, pick.rank < me.rank ? C : P);
 });
 $("rank-back").addEventListener("click", () => history.back());
+// ランクマッチが終わったら、そのまま次の対戦相手を選んで対戦前の紹介へ
+$("next-match").addEventListener("click", () => {
+  if (!dict || !rankBook || !over || mode !== "rank") return;
+  ensureAudio();
+  hideVictory();
+  const { me, rows } = rankBook.nearby();
+  const pool = rows.filter((r) => !r.isPlayer && Math.abs(r.rank - me.rank) <= NEAR);
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  showVsIntro(pick, me, pick.rank < me.rank ? C : P);
+});
 
 // HOW TO PLAY の言語 (日本語が初期値)。選択は覚えておく
 let helpLang = "ja";
@@ -1410,11 +1421,12 @@ function navigate(name) {
   showView(name);
 }
 let leaving = false; // 対局を抜けると確認済み
-// 抜けるときに確認が必要な対局か。ランクマッチは RANK_FREE_MOVES 手を超えたら (抜けると負けになる)、それ以外は 1 手でも打っていたら
-const gameInProgress = () => currentView === "game" && !over && !leaving && (mode === "rank" ? moveCount >= RANK_FREE_MOVES : logEl.children.length > 0);
+// 抜けるときに確認が必要な対局か。1 手でも打っていたら (ランクマッチは抜けるとキャンセル。RANK_PENALTY_MOVES 手以降は 1 ポイント減る)
+const gameInProgress = () => currentView === "game" && !over && !leaving && logEl.children.length > 0;
+const leavePenalty = () => mode === "rank" && moveCount >= RANK_PENALTY_MOVES;
 function askLeave() {
   const ranked = mode === "rank";
-  $("leave-text").textContent = ranked ? "負けることになりますがよろしいですか？" : "LEAVE THIS GAME?";
+  $("leave-text").textContent = ranked ? (leavePenalty() ? "MENUに戻りますか？（1ポイント減ります）" : "MENUに戻りますか？") : "LEAVE THIS GAME?";
   $("leave-text").classList.toggle("jp", ranked);
   $("leave-confirm").hidden = false;
 }
@@ -1437,7 +1449,7 @@ $("menu-back").addEventListener("click", () => {
 });
 $("leave-yes").addEventListener("click", () => {
   $("leave-confirm").hidden = true;
-  if (mode === "rank" && gameInProgress()) recordRank(0, 1); // ランクマッチの途中で抜けたら負け
+  if (leavePenalty() && gameInProgress()) rankBook.penalty(1); // ランクマッチを 10 手目以降に抜けたら 1 ポイント減
   leaving = true;
   history.back();
 });

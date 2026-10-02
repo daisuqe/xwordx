@@ -153,7 +153,7 @@ body:not(.ready) .level-choice { opacity: .4; pointer-events: none; }
 .help-view .match-bar { justify-content: space-between; }
 .help-lang { min-width: 108px; }
 .help-body[lang="ja"] { --jp: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, "Noto Sans JP", sans-serif; }
-.help-body[lang="ja"] .help-title { font-family: var(--jp); font-weight: 700; letter-spacing: .12em; }
+.help-body[lang="ja"] .help-title { font-family: yodaka, monospace; font-weight: 400; letter-spacing: .1em; }
 .help-body[lang="ja"] .help-block { font: 16px/1.9 var(--jp); letter-spacing: .03em; }
 .help-body[lang="ja"] .help-block h3 { font: 700 20px var(--jp); letter-spacing: .1em; }
 .help-body[lang="ja"] .island-table th, .help-body[lang="ja"] .island-table td { font: 15px var(--jp); }
@@ -442,6 +442,10 @@ body:not(.keypad) .game-view .sc .face { width: 64px; height: 64px; }
 .game-view.over .entry, .game-view.over .kana-pad { opacity: .3; filter: brightness(.55) saturate(.6); pointer-events: none; transition: opacity .6s, filter .6s; }
 .game-view.over .entry::after { display: none; }
 #word:disabled { cursor: not-allowed; }
+/* ランクマッチが終わったら、フリックのキーと入力欄は消して、NEXT MATCH のボタンを出す */
+.next-match { display: none; }
+.game-view.rank-over .kana-pad, body.keypad .game-view.rank-over .kana-pad, .game-view.rank-over .entry { display: none; }
+.game-view.rank-over .next-match { display: block; margin: 12px 0; padding: 18px; font-size: 28px; }
 
 /* ===== ランクマッチ: 順位表の部分だけスクロールする ===== */
 .rank-view:not([hidden]) { display: flex; flex-direction: column; height: calc(100vh - 64px); height: calc(100dvh - 64px); }
@@ -557,6 +561,11 @@ button.rank-row:hover, button.rank-row:focus-visible { background: #1b562b; }
 
 /* MATCH START の文字を大きく */
 #rank-start { font-size: 30px; }
+
+/* タイトルと MATCH START 脇のひし形: 3 割大きく、少しグローを付ける */
+.brand .gem { width: 35px; height: 35px; }
+.brand .gem::before { box-shadow: 0 0 8px #e8e070aa, inset 0 0 6px #e8e07066; }
+#rank-start::before, #rank-start::after { width: 34px; height: 34px; box-shadow: 0 0 8px #e8e070aa, inset 0 0 6px #e8e07066; }
 
 /* ===== 対戦前の紹介: 左上にあなた、右下に相手 ===== */
 .vs-intro { position: fixed; z-index: 70; inset: 0; display: grid; grid-template: 1fr 1fr 1fr / 1fr; padding: 4vmin 5vmin; cursor: pointer; overflow: hidden;

@@ -120,6 +120,14 @@ export class RankBook {
     return { oldRank, newRank, delta: Math.round(p.rating) - Math.round(ra), rating: Math.round(p.rating) };
   }
 
+  // 途中で抜けたときのペナルティ: 勝ち負けには数えず、レーティングだけ points 下げる
+  penalty(points) {
+    const oldRank = this.playerRank();
+    this.state.player.rating -= points;
+    this.save();
+    return { oldRank, newRank: this.playerRank() };
+  }
+
   // 1日の最初の起動で、COM 同士の対戦を行って順位を入れ替える。行ったら true
   dailyUpdate() {
     const date = todayString();
