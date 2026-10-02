@@ -291,6 +291,7 @@ function beginGame(label) {
   SIZE = profile.size;
   buildBoard();
   $("com-level").textContent = label;
+  $("com-level").classList.toggle("rank", mode === "rank"); // ランクマッチの表示は金色
   setOpponent(opponent);
   navigate("game");
   fitBoard();

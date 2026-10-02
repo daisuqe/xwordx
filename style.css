@@ -663,3 +663,12 @@ button.rank-row:hover, button.rank-row:focus-visible { background: #1b562b; }
 .hist-row .hres .lose, .hist-row .rt.lose { color: var(--red-text); }
 .hist-row .hres .draw, .hist-row .rt.draw { color: #b4d8c8; }
 .hist-row .hres.win { color: #ffe27a; } .hist-row .hres.lose { color: var(--red-text); } .hist-row .hres.draw { color: #b4d8c8; }
+#com-level.rank { color: #ffe27a; text-shadow: 0 0 8px rgba(255, 226, 122, .55); }
+#com-level { color: #ffe27a; text-shadow: 0 0 8px rgba(255, 226, 122, .55); }
+
+/* ===== スマホ: UI 以外をドラッグしても、文字が選択されたり画面がずれたりしないようにする ===== */
+html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+input, textarea { -webkit-user-select: text; user-select: text; } /* 入力欄では選べる */
+body.in-game, html:has(body.in-game) { overflow: hidden; } /* 対局中は画面そのものを動かさない */
+body.in-game { touch-action: manipulation; }
+img, canvas { -webkit-user-drag: none; user-drag: none; }
