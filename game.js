@@ -1225,7 +1225,7 @@ const FLICK_KEYS = [
   ["た", "ちつてと"], ["な", "にぬねの"], ["は", "ひふへほ"],
   ["ま", "みむめも"], ["や", "-ゆ-よ"], ["ら", "りるれろ"],
 ];
-const WA_KEY = ["わ", "をん-ー"]; // 中央 わ / 左 を / 上 ん / 右 (なし: "-") / 下 ー
+const WA_KEY = ["わ", "をんー-"]; // 中央 わ / 左 を / 上 ん / 右 ー / 下 (なし: "-")
 const CYCLES = ["あぁ", "いぃ", "うぅゔ", "えぇ", "おぉ", "かが", "きぎ", "くぐ", "けげ", "こご", "さざ", "しじ", "すず", "せぜ", "そぞ",
   "ただ", "ちぢ", "つっづ", "てで", "とど", "はばぱ", "ひびぴ", "ふぶぷ", "へべぺ", "ほぼぽ", "やゃ", "ゆゅ", "よょ", "わゎ"];
 const MAX_INPUT = 12;
@@ -1303,7 +1303,7 @@ function buildKeypad() {
     return b;
   };
   for (const [label, others] of FLICK_KEYS) pad.append(flickKey(label, others));
-  // 下段: 小゛゜ / わ / DEL (ー は わ の下フリック)
+  // 下段: 小゛゜ / わ / DEL (ー は わ の右フリック)
   pad.append(action("小゛゜", "small", padTransform, "small kana or dakuten"));
   pad.append(flickKey(...WA_KEY));
   pad.append(action("DEL", "del", () => { wordEl.value = [...wordEl.value].slice(0, -1).join(""); updateWordStatus(); }, "delete"));
