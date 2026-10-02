@@ -32,25 +32,30 @@ const NAME = { [P]: "YOU", [C]: "COM" };
 //   pick      : 評価の上位いくつからランダムに選ぶか
 const PROFILES = {
   easy: { name: "EASY", size: 7, lv: 1, maxLen: 5, crossOnly: true, random: true, pick: 1 },
-  normal: { name: "NORMAL", size: 7, lv: 3, maxLen: 6, crossOnly: false, island: 0.3, crossBonus: 2, noise: 3, pick: 20 },
-  hard: { name: "HARD", size: 9, lv: 6, maxLen: 7, crossOnly: false, island: 1, crossBonus: 0, noise: 1, pick: 15 },
-  any: { name: "ANY", size: 9, lv: 9, maxLen: 8, crossOnly: false, island: 1.2, crossBonus: 0, noise: 0.5, pick: 8 },
+  normal: { name: "NORMAL", size: 7, lv: 3, maxLen: 6, crossOnly: false, island: 0.3, crossBonus: 2, noise: 3, pick: 20, slip: 0.12 },
+  hard: { name: "HARD", size: 9, lv: 6, maxLen: 7, crossOnly: false, island: 1, crossBonus: 0, noise: 1, pick: 15, slip: 0.08 },
+  any: { name: "ANY", size: 9, lv: 9, maxLen: 8, crossOnly: false, island: 1.2, crossBonus: 0, noise: 0.5, pick: 8, slip: 0.04 },
 };
+//   slip      : 高得点の手に気づかない (うっかり) 確率。起きると評価の上位 SLIP_SKIP の割合を見落とす
+const SLIP_SKIP = 0.3;
+//   longMiss  : 4 文字を超えた 1 文字ごとに、その単語を思いつかない (候補から外れる) 確率 (ランクマッチのみ)
 const EASY_BONUS = 0.3; // 段が1つ易しいごとに評価に足す点
 
 // ランクマッチの COM の性格: 相手のキャラクターの強さ (18〜95) から連続的に決める
-// rank (相手の現在の順位): 1〜5 位は強さのまま、6 位以降は強さを抑え、6〜25 位は難しい語 (段 5 以上) を使わない
-const TOP_RANKS = 5, MID_RANKS = 25, MID_MAX_LV = 4, LOWER_MAX_T = 0.5;
+// rank (相手の現在の順位) ごとに、使える語の段の上限を決める。[順位の上限, 段]。50 位より下は強さから決まる (最大 4)
+const RANK_LV = [[3, 9], [6, 8], [9, 7], [12, 6], [25, 5], [50, 4]];
+const LOWER_MAX_T = 0.5, LOWER_RANK = 25; // 26 位より下は、強さの値 (島や単語の長さなど) も頭打ちにする
 function profileFromStrength(strength, rank = 99) {
   let t = Math.min(1, Math.max(0, (strength - 15) / 80)); // 0 (弱い) 〜 1 (強い)
-  if (rank > TOP_RANKS) t = Math.min(t, LOWER_MAX_T);
+  if (rank > LOWER_RANK) t = Math.min(t, LOWER_MAX_T);
   let lv = Math.round(1 + t * 8);
-  if (rank > TOP_RANKS && rank <= MID_RANKS) lv = Math.min(lv, MID_MAX_LV);
+  const row = RANK_LV.find(([max]) => rank <= max);
+  lv = row ? row[1] : Math.min(lv, 4);
   return {
     name: "RANK MATCH", size: 7,
     lv, maxLen: Math.round(4 + t * 4),
     crossOnly: t < 0.2, random: t < 0.12,
-    island: t * 1.2, crossBonus: (1 - t) * 2, noise: 3 - t * 2.5, pick: Math.max(1, Math.round(20 - t * 18)),
+    island: t * 1.2, crossBonus: (1 - t) * 2, noise: 3 - t * 2.5, pick: Math.max(1, Math.round(20 - t * 18)), slip: 0.04 + (1 - t) * 0.1, longMiss: (1 - t) * 0.3,
   };
 }
 // 通常のレベルで戦うキャラクターを、レベルに見合う強さの中から選ぶ
@@ -68,6 +73,8 @@ let dict = null;
 // big[r][c] = 大きい字として使われた単語が通っている (小さい字がある字は、これが false の間は小さい字で表示)
 let letters, owner, big;
 let wordPts, crossPts, used, turn, over, passes, busy;
+let kb = null; // PC のキーボード操作のマス選択カーソル: { r, c, anchored } (null なら出ていない)
+let kbPos = null; // 最後にカーソルがあった位置 (次に出すときの場所)
 let gems = []; // 直近の手で新しくできた交点のマス。次の手が置かれるまで、ひし形をゆっくり回す
 let marks = { [P]: [], [C]: [] }; // 各側の直近の手で新しくできた単語 (マス index の配列の配列)。相手の1ターンが終わるまでカプセルで囲む
 let profile = PROFILES.normal;
@@ -434,6 +441,9 @@ function newGame() {
   gems = [];
   logEl.innerHTML = "";
   wordEl.value = "";
+  kb = null;
+  romaBuf = "";
+  $("roma-buf").textContent = "";
   render();
   say(mode === "rank" ? (turn === C ? `${NAME[C]}の先攻です` : "あなたの先攻です") : "");
   if (turn === C) {
@@ -485,12 +495,16 @@ function render(preview) {
       let cls = "cell";
       if (letters[r][c]) cls += " filled o" + owner[r][c];
       if (p) cls += preview.ok ? " pv-ok" : " pv-ng";
+      if (kb && kb.r === r && kb.c === c) cls += kb.anchored ? " kb-anchor" : " kb-cur";
       el.className = cls;
     }
   }
+  // ランクマッチ: スコア欄をタップしたときの内訳の先頭に、順位とレーティングを出す (自分も相手も)
+  const standing = mode === "rank" && rankBook ? rankBook.standings() : null;
   for (const bit of [P, C]) {
     $(bit === P ? "sp" : "sc").textContent = scoreHold ? scoreHold[bit] : total(bit); // 演出中は、点が数えられるのに合わせて増やす
-    $(bit === P ? "dp" : "dc").textContent = [`WORD ${wordPts[bit]}`, `CROSS ${crossPts[bit]}`, `ISLAND ${islandPts(owner, bit)}`].join("\n");
+    const st = standing?.find((r) => (bit === P ? r.isPlayer : r.name === opponent?.name));
+    $(bit === P ? "dp" : "dc").textContent = [...(st ? [`RANK ${st.rank}  RATING ${Math.round(st.rating)}`] : []), `WORD ${wordPts[bit]}`, `CROSS ${crossPts[bit]}`, `ISLAND ${islandPts(owner, bit)}`].join("\n");
   }
   // 試合が終わったら、WORD 入力欄とフリックのキーを暗くして、入力できなくする
   $("game-view").classList.toggle("over", over);
@@ -1108,6 +1122,8 @@ function comSearch() {
   const scored = [];
   const baseIsland = islandPts(owner, C);
   for (const [word, r, c, dir] of cands) {
+    // 長い単語は思いつかない: 4 文字を超えた 1 文字ごとに longMiss の確率で候補から外す (弱い相手ほど大きい)
+    if (profile.longMiss && Math.random() < Math.min(0.95, ([...word].length - 4) * profile.longMiss)) continue;
     const res = check(word, r, c, dir, lv);
     if (!res.ok) continue;
     if (crossOnly && (res.overlap < 1 || res.words.length > 1)) continue;
@@ -1123,7 +1139,9 @@ function comSearch() {
   }
   if (!scored.length) return null;
   scored.sort((a, b) => b.gain - a.gain);
-  const top = scored.slice(0, profile.pick);
+  // うっかり: 一定の確率で、評価の高い上位の手 (高得点の場所) に気づかず、それより下から選ぶ。強い相手でもわずかに起きる
+  const skip = Math.random() < (profile.slip ?? 0) ? Math.min(scored.length - 1, Math.ceil(scored.length * SLIP_SKIP)) : 0;
+  const top = scored.slice(skip, skip + profile.pick);
   return top[Math.floor(Math.random() * top.length)];
 }
 
@@ -1149,6 +1167,7 @@ boardEl.addEventListener("pointerdown", (e) => {
   const cell = cellAt(e);
   if (!cell) return;
   if (!currentWord()) return say("単語を入力してください", true);
+  kb = null; // マウスで操作するときは、キーボードのカーソルを消す
   boardEl.setPointerCapture(e.pointerId);
   drag = cell;
 });
@@ -1275,6 +1294,112 @@ if (matchMedia("(hover: none) and (pointer: coarse)").matches || new URLSearchPa
   wordEl.inputMode = "none";
   buildKeypad();
 }
+// ---------- PC: キーボードだけで遊ぶ (辞書も IME も使わない、オリジナルのローマ字→ひらがな入力) ----------
+// 文字キー: ローマ字をひらがなにする / BS・DEL: 1つ前の文字を消す
+// 矢印キー: マス選択のカーソルを出して動かす → Enter: 位置を決める → → か ↓ で、その位置から単語を置く / Esc: 1つ戻る
+// 入力欄をクリックしなくてもよく、カーソルを動かしている間も文字は打てる。マウスの操作もそのまま使える
+wordEl.readOnly = true;
+wordEl.inputMode = "none";
+const ROMA = {}, V = "aiueo";
+{
+  const rows = { k: "かきくけこ", s: "さしすせそ", t: "たちつてと", n: "なにぬねの", h: "はひふへほ", m: "まみむめも", r: "らりるれろ",
+    g: "がぎぐげご", z: "ざじずぜぞ", d: "だぢづでど", b: "ばびぶべぼ", p: "ぱぴぷぺぽ" };
+  for (let i = 0; i < 5; i++) ROMA[V[i]] = "あいうえお"[i];
+  for (const [c, s] of Object.entries(rows)) {
+    for (let i = 0; i < 5; i++) ROMA[c + V[i]] = s[i];
+    ["a", "u", "o"].forEach((v, j) => { ROMA[c + "y" + v] = s[1] + "ゃゅょ"[j]; }); // きゃ きゅ きょ
+  }
+  Object.assign(ROMA, {
+    ya: "や", yu: "ゆ", yo: "よ", ye: "いぇ", wa: "わ", wi: "うぃ", wu: "う", we: "うぇ", wo: "を",
+    shi: "し", sha: "しゃ", shu: "しゅ", she: "しぇ", sho: "しょ", chi: "ち", cha: "ちゃ", chu: "ちゅ", che: "ちぇ", cho: "ちょ",
+    tsu: "つ", ji: "じ", ja: "じゃ", ju: "じゅ", je: "じぇ", jo: "じょ", fa: "ふぁ", fi: "ふぃ", fu: "ふ", fe: "ふぇ", fo: "ふぉ",
+    vu: "ゔ", "-": "ー",
+  });
+  for (const p of ["x", "l"]) {
+    Object.assign(ROMA, { [p + "a"]: "ぁ", [p + "i"]: "ぃ", [p + "u"]: "ぅ", [p + "e"]: "ぇ", [p + "o"]: "ぉ",
+      [p + "ya"]: "ゃ", [p + "yu"]: "ゅ", [p + "yo"]: "ょ", [p + "tu"]: "っ", [p + "tsu"]: "っ", [p + "wa"]: "ゎ" });
+  }
+}
+const ROMA_PREFIX = new Set();
+for (const k of Object.keys(ROMA)) for (let i = 1; i < k.length; i++) ROMA_PREFIX.add(k.slice(0, i));
+let romaBuf = ""; // まだひらがなにならないローマ字 (例: k, sh)
+const showRoma = () => { $("roma-buf").textContent = romaBuf; };
+
+function romaFeed(ch) {
+  romaBuf += ch;
+  while (romaBuf) {
+    if (ROMA[romaBuf] != null) { padInsert(ROMA[romaBuf]); romaBuf = ""; break; }
+    if (ROMA_PREFIX.has(romaBuf)) break;
+    const a = romaBuf[0], b = romaBuf[1];
+    if (a === "n" && b) padInsert("ん"); // n のあとが母音・y 以外: ん
+    else if (b && (a === b && !V.includes(a) || a === "t" && b === "c")) padInsert("っ"); // kk tt (tch) など: っ
+    romaBuf = romaBuf.slice(1);
+  }
+  showRoma();
+}
+function romaFlush() { // 単語を置く前に、残っている n を ん にする
+  if (romaBuf === "n") padInsert("ん");
+  romaBuf = "";
+  showRoma();
+}
+function romaBack() { // 1つ前の文字を消す (ローマ字が残っていればそれから)
+  if (romaBuf) romaBuf = romaBuf.slice(0, -1);
+  else wordEl.value = [...wordEl.value].slice(0, -1).join("");
+  showRoma();
+  updateWordStatus();
+}
+function kbPlace(dir) {
+  romaFlush();
+  const w = currentWord(), { r, c } = kb;
+  if (!w) return say("単語を入力してください", true);
+  const res = check(w, r, c, dir);
+  if (!res.ok) { render(res); return say(res.error, true); } // 置けないときは、カーソルを残して理由を出す
+  kb = null;
+  render();
+  playerMove(w, r, c, dir);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (currentView !== "game" || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+  if (!dict || over || busy || turn !== P) return;
+  if (!$("leave-confirm").hidden || !$("victory").hidden || !$("vs-intro").hidden) return;
+  const k = e.code;
+  const move = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[k];
+  if (move) {
+    e.preventDefault();
+    if (!kb) { // カーソルを出す (前にあった位置から)
+      const mid = (SIZE - 1) >> 1;
+      kb = { r: kbPos?.r ?? mid, c: kbPos?.c ?? mid, anchored: false };
+      say("矢印でマスを選んで Enter");
+    } else if (!kb.anchored) {
+      kb.r = Math.min(SIZE - 1, Math.max(0, kb.r + move[0]));
+      kb.c = Math.min(SIZE - 1, Math.max(0, kb.c + move[1]));
+    } else if (k === "ArrowRight") return kbPlace("right");
+    else if (k === "ArrowDown") return kbPlace("down");
+    else return;
+    kbPos = { r: kb.r, c: kb.c };
+    render();
+  } else if (k === "Enter" || k === "NumpadEnter") {
+    if (!kb || kb.anchored) return;
+    e.preventDefault();
+    kb.anchored = true;
+    render();
+    say("→ で右、↓ で下に置く (Esc で戻る)");
+  } else if (k === "Escape") {
+    if (kb) { e.preventDefault(); if (kb.anchored) kb.anchored = false; else kb = null; render(); updateWordStatus(); }
+    else if (romaBuf) { romaBuf = ""; showRoma(); }
+  } else if (k === "Backspace" || k === "Delete") {
+    e.preventDefault();
+    romaBack();
+  } else if (/^Key[A-Z]$/.test(k)) {
+    e.preventDefault();
+    romaFeed(k.slice(3).toLowerCase());
+  } else if (k === "Minus") {
+    e.preventDefault();
+    romaFeed("-");
+  }
+});
+
 // スコアをタップすると内訳 (WORD / CROSS / ISLAND) を開閉する
 for (const card of document.querySelectorAll(".sc")) {
   const toggle = () => {

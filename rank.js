@@ -115,9 +115,28 @@ export class RankBook {
     const h = (this.state.h2h[oppName] ||= { w: 0, l: 0, d: 0 });
     if (result === 1) h.w++; else if (result === 0) h.l++; else h.d++;
     if (result === 1) p.wins++; else if (result === 0) p.losses++; else p.draws++;
+    this._othersPlay(oppName);
     this.save();
     const newRank = this.playerRank();
     return { oldRank, newRank, delta: Math.round(p.rating) - Math.round(ra), rating: Math.round(p.rating) };
+  }
+
+  // あなたが1戦するたびに、あなたの相手以外の COM の半分も、(レーティングの近い) 誰かと1戦する
+  _othersPlay(oppName) {
+    const st = this.state;
+    const pool = this.roster.map((c) => c.name).filter((n) => n !== oppName);
+    for (let i = pool.length - 1; i > 0; i--) { // 無作為に半分を選ぶ
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const half = pool.slice(0, Math.floor(pool.length / 2)).sort((x, y) => st.ratings[y] - st.ratings[x]);
+    for (let i = 0; i + 1 < half.length; i += 2) { // 近いレーティングどうしで2人ずつ対戦
+      const a = half[i], b = half[i + 1];
+      const ra = st.ratings[a], rb = st.ratings[b], e = expected(ra, rb);
+      const s = Math.random() < DRAW_RATE ? 0.5 : Math.random() < e ? 1 : 0;
+      st.ratings[a] = ra + K_COM * (s - e);
+      st.ratings[b] = rb - K_COM * (s - e);
+    }
   }
 
   // 1日の最初の起動で、COM 同士の対戦を行って順位を入れ替える。行ったら true

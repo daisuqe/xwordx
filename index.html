@@ -54,6 +54,7 @@
         <h3>単語を置く</h3>
         <p>ひらがなの単語を入力し、開始マスを押したまま<b>右</b>か<b>下</b>へドラッグします。指を離すと置けます。</p>
         <p>スマホでは、盤面の下に日本語のフリック入力キーパッドが出ます（タップで「あ」、上下左右にフリックで「い・う・え・お」など）。</p>
+        <p>PCではキーボードでも遊べます。ローマ字で入力し（BS／DEL で1文字消す）、矢印キーでマスを選んで Enter、→ か ↓ でその位置から単語を置きます（Esc で1つ戻る）。</p>
         <ul>
           <li>辞書にある単語であること（普通名詞、2文字以上、辞書はJMDICT/KANJIDIC2使用）。同じ単語は、自分も相手も2回使えません。</li>
           <li>盤面にある文字と交差するか、隣り合っていること。</li>
@@ -234,12 +235,13 @@
 
     <div class="entry">
       <input id="word" type="text" placeholder="WORD" aria-label="Word" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <span id="roma-buf" class="roma-buf" aria-hidden="true"></span>
     </div>
 
     <!-- スマホ用の日本語フリック入力 (タッチ端末でだけ game.js が作る) -->
     <div id="kana-pad" class="kana-pad" aria-label="Kana keypad"></div>
 
-    <button id="next-match" class="help-button next-match" type="button" hidden>NEXT MATCH</button>
+    <button id="next-match" class="help-button next-match" type="button">NEXT MATCH &gt;</button>
 
     <p id="message" role="status"></p>
 

@@ -443,10 +443,14 @@ body:not(.keypad) .game-view .sc .face { width: 64px; height: 64px; }
 .game-view.over .entry, .game-view.over .kana-pad { opacity: .3; filter: brightness(.55) saturate(.6); pointer-events: none; transition: opacity .6s, filter .6s; }
 .game-view.over .entry::after { display: none; }
 #word:disabled { cursor: not-allowed; }
+/* PC のキーボード操作: マス選択のカーソル (金色=選択中、緑=位置を決めた) と、入力途中のローマ字 */
+.cell.kb-cur { position: relative; z-index: 5; outline: 3px solid #ffe27a; outline-offset: -3px; box-shadow: 0 0 14px #ffe27acc; }
+.cell.kb-anchor { position: relative; z-index: 5; outline: 3px solid #57ffb6; outline-offset: -3px; box-shadow: 0 0 16px #57ffb6cc; animation: blink 1s steps(2, end) infinite; }
+.roma-buf { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font: 24px yodaka, monospace; letter-spacing: .1em; color: #ffe27a; pointer-events: none; }
 /* ランクマッチが終わったら、フリックのキーと入力欄は消して、NEXT MATCH のボタンを出す */
 .next-match { display: none; }
 .game-view.rank-over .kana-pad, body.keypad .game-view.rank-over .kana-pad, .game-view.rank-over .entry { display: none; }
-.game-view.rank-over .next-match { display: block; margin: 12px 0; padding: 18px; font-size: 28px; }
+.game-view.rank-over .next-match { display: block; margin: 12px 0; padding: 18px 8px; font-size: 24px; letter-spacing: .06em; white-space: nowrap; border-color: #57ffb6; background: linear-gradient(180deg, #1f6a4c, #14503a); color: #f2fff9; text-shadow: 0 0 10px #57ffb6aa; box-shadow: 0 0 18px #2bd98b77, inset 0 0 14px #57ffb644; }
 
 /* ===== ランクマッチ: 順位表の部分だけスクロールする ===== */
 .rank-view:not([hidden]) { display: flex; flex-direction: column; height: calc(100vh - 64px); height: calc(100dvh - 64px); }
@@ -530,7 +534,7 @@ button.rank-row:hover, button.rank-row:focus-visible { background: #1b562b; }
 
 /* ===== タイトルのひし形: さらに 1.8 倍、文字から少し離す。字間の余白 (最後の X の右) を打ち消して左右の距離をそろえる ===== */
 .brand { gap: 24px; }
-.brand h1 { margin-right: -.08em; }
+.brand h1 { margin-right: -.08em; color: #f2fff9; text-shadow: 0 0 10px #57ffb6aa, 0 0 26px #2bd98b99; } /* タイトルを明るく */
 .brand .gem { width: 38px; height: 38px; }
 
 /* ===== タイトルのひし形は 7 割の大きさ (左右は同じ角度で回る) / RANK MATCH ボタンは高く、EASY〜ANY は低く ===== */
