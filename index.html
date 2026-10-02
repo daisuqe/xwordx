@@ -101,7 +101,7 @@
 
       <section class="help-block">
         <h3>ランクマッチ</h3>
-        <p>あなたと COM のキャラクター99人が、1つのランキングに並びます。盤面は7×7です。<b>自分の順位の上下30位以内</b>から相手を選んで対戦します。</p>
+        <p>あなたと COM のキャラクター99人が、1つのランキングに並びます。盤面は7×7です。<b>自分の順位の上下20位以内</b>から相手が決まります。20位より上にいるときは、上にいる人数と同じ人数だけ下の順位と対戦します（10位なら上下9人、2位なら1位と3位）。1位だけは2〜5位と対戦します。対戦の履歴は、右上の HISTORY で最大100件まで見られます。</p>
         <ul>
           <li>チェスと同じ Elo 方式です。勝つとレーティングが上がり、順位の高い相手に勝つほど大きく上がります。負けると下がります。</li>
           <li>相手が強いほど、COM は長い単語や難しい単語を使い、島も意識して打ってきます。</li>
@@ -167,7 +167,7 @@
 
       <section class="help-block">
         <h3>RANK MATCH</h3>
-        <p>YOU AND THE 99 COM CHARACTERS SHARE ONE RANKING. THE BOARD IS 7x7. YOUR OPPONENT IS PICKED AT RANDOM FROM <b>WITHIN 30 RANKS ABOVE OR BELOW YOU</b>.</p>
+        <p>YOU AND THE 99 COM CHARACTERS SHARE ONE RANKING. THE BOARD IS 7x7. YOUR OPPONENT IS PICKED AT RANDOM FROM <b>WITHIN 20 RANKS ABOVE OR BELOW YOU</b>. ABOVE RANK 20, YOU FACE AS MANY RANKS BELOW AS THERE ARE ABOVE YOU (RANK 10: 9 EACH WAY; RANK 2: 1ST AND 3RD). RANK 1 FACES RANKS 2-5. THE HISTORY BUTTON SHOWS YOUR LAST 100 MATCHES.</p>
         <ul>
           <li>IT USES THE SAME ELO SYSTEM AS CHESS. A WIN RAISES YOUR RATING (MORE FOR BEATING A HIGHER RANK), A LOSS LOWERS IT.</li>
           <li>THE STRONGER THE OPPONENT, THE LONGER AND RARER THE WORDS IT USES, AND THE MORE IT PLAYS FOR ISLANDS.</li>
@@ -205,12 +205,20 @@
 
   <!-- RANK MATCH -->
   <section id="rank-view" class="rank-view" aria-label="Rank match" hidden>
-    <div class="match-bar"><button id="rank-back" class="btn" type="button">&lt; BACK</button></div>
+    <div class="match-bar"><button id="rank-back" class="btn" type="button">&lt; BACK</button><button id="rank-history" class="btn" type="button">HISTORY &gt;</button></div>
     <h2 class="help-title">RANK MATCH</h2>
     <button id="rank-start" class="help-button" type="button">MATCH START</button>
     <p id="rank-summary" class="rank-summary"></p>
     <p id="rank-daily" class="rank-daily"></p>
     <ol id="rank-list" class="rank-list" aria-label="Ranking"></ol>
+  </section>
+
+  <!-- RANK MATCH: 対戦履歴 -->
+  <section id="history-view" class="history-view" aria-label="Match history" hidden>
+    <div class="match-bar"><button id="history-back" class="btn" type="button">&lt; BACK</button></div>
+    <h2 class="help-title">HISTORY</h2>
+    <p id="history-empty" class="rank-daily">NO MATCHES YET</p>
+    <ol id="history-list" class="rank-list history-list" aria-label="Match history"></ol>
   </section>
 
   <!-- GAME -->

@@ -5,10 +5,11 @@
 // データはこのブラウザの localStorage に保存する (保存できない環境では、開いている間だけ覚える)
 
 export const PLAYER = "YOU";
-export const NEAR = 30; // 自分の順位の上下何人と戦うか
+export const NEAR = 20; // 自分の順位の上下何人と戦うか
 const KEY = "xwordx.rank.v1";
 const START_RATING = 1500;
 const K_PLAYER = 96, K_COM_MATCH = 72; // あなたとの対戦での、1戦での動きの大きさ (大きいほど勝敗が順位に強く効く)
+export const HISTORY_MAX = 100;
 const K_COM = 24; // COM どうしの毎日の更新での動きの大きさ
 const DRAW_RATE = 0.08; // COM 同士の対戦が引き分けになる割合
 const DAILY_MATCHES_PER_COM = 4; // 1日の更新で、COM 1人あたり何戦するか
@@ -50,9 +51,11 @@ export class RankBook {
     for (const c of this.roster) ratings[c.name] = initialRating(c.strength);
     return {
       v: 1,
-      player: { rating: START_RATING, games: 0, wins: 0, losses: 0, draws: 0 },
+      player: { rating: Math.min(START_RATING, ...Object.values(ratings)) - 1, // 最下位 (100 位) から始める
+         games: 0, wins: 0, losses: 0, draws: 0 },
       ratings,
       prevRanks: {}, // 前回の更新の直前の順位 (順位の上がり下がりの表示用)
+      history: [], // ランクマッチの対戦履歴 (新しい順、最大 HISTORY_MAX 件)
       h2h: {}, // 相手ごとの、あなたの対戦成績 { 名前: { w, l, d } }
       lastDaily: "", // 最後に COM 同士の更新をした日
       daily: null, // その更新の内容 { date, matches }
@@ -64,6 +67,7 @@ export class RankBook {
       const s = JSON.parse(localStorage.getItem(KEY));
       if (s && s.v === 1 && s.player && s.ratings) {
         if (!s.h2h) s.h2h = {};
+        if (!Array.isArray(s.history)) s.history = [];
         for (const c of this.roster) if (typeof s.ratings[c.name] !== "number") s.ratings[c.name] = initialRating(c.strength);
         return s;
       }
@@ -102,10 +106,22 @@ export class RankBook {
     return { me, rows: all.map((r) => ({ ...r, change: this.rankChange(r.name, r.rank) })) };
   }
 
-  // 対戦結果を反映する。result: 1=あなたの勝ち, 0.5=引き分け, 0=あなたの負け
-  record(oppName, result) {
+  // 対戦相手になれる人 (順位の高い順)。
+  // 自分の上下 NEAR 位以内が基本。ただし自分が NEAR 位以内にいるときは、自分より強い人数 (順位 - 1) と同じ人数だけ下の順位とも戦う
+  // (20 位なら上下 19 人、10 位なら上下 9 人、2 位なら 1 位と 3 位)。1 位だけは相手がいなくなるので 2〜5 位と戦う
+  opponentPool() {
+    const all = this.standings();
+    const me = all.find((r) => r.isPlayer);
+    const k = Math.min(NEAR, me.rank - 1);
+    const lo = me.rank === 1 ? 2 : me.rank - k, hi = me.rank === 1 ? 5 : me.rank + k;
+    return { me, rows: all.filter((r) => !r.isPlayer && r.rank >= lo && r.rank <= hi) };
+  }
+
+  // 対戦結果を反映する。result: 1=あなたの勝ち, 0.5=引き分け, 0=あなたの負け。score: "40-10" のような得点 (履歴用)
+  record(oppName, result, score = "") {
     const before = this.standings();
     const oldRank = before.find((r) => r.isPlayer).rank;
+    const oppRank = before.find((r) => r.name === oppName).rank;
     const p = this.state.player, ra = p.rating, rb = this.state.ratings[oppName];
     const e = expected(ra, rb);
     const dp = K_PLAYER * (result - e);
@@ -116,8 +132,11 @@ export class RankBook {
     if (result === 1) h.w++; else if (result === 0) h.l++; else h.d++;
     if (result === 1) p.wins++; else if (result === 0) p.losses++; else p.draws++;
     this._othersPlay(oppName);
+    const newRank0 = this.playerRank();
+    this.state.history.unshift({ t: Date.now(), date: todayString(), opp: oppName, oppRank, result, score, oldRank, newRank: newRank0 });
+    this.state.history.length = Math.min(this.state.history.length, HISTORY_MAX);
     this.save();
-    const newRank = this.playerRank();
+    const newRank = newRank0;
     return { oldRank, newRank, delta: Math.round(p.rating) - Math.round(ra), rating: Math.round(p.rating) };
   }
 
@@ -155,7 +174,10 @@ export class RankBook {
       // 相手は、順位の近い COM から選ぶ (あなたは含めない)
       const order = this.standings();
       const ia = order.findIndex((r) => r.name === a);
-      const near = order.filter((r, j) => !r.isPlayer && r.name !== a && Math.abs(j - ia) <= NEAR);
+      const rank = ia + 1; // あなたと同じ決め方: 上下 NEAR 位以内。ただし上位は、上にいる人数と同じ人数だけ下と戦う。1 位は 2〜5 位
+      const k = Math.min(NEAR, rank - 1);
+      const lo = rank === 1 ? 2 : rank - k, hi = rank === 1 ? 5 : rank + k;
+      const near = order.filter((r, j) => !r.isPlayer && r.name !== a && j + 1 >= lo && j + 1 <= hi);
       if (!near.length) continue;
       const b = near[Math.floor(rng() * near.length)].name;
       const ra = st.ratings[a], rb = st.ratings[b], e = expected(ra, rb);
@@ -163,6 +185,7 @@ export class RankBook {
       st.ratings[a] = ra + K_COM * (s - e);
       st.ratings[b] = rb - K_COM * (s - e);
     }
+    if (st.player.games === 0) st.player.rating = Math.min(...Object.values(st.ratings)) - 1; // まだ対戦していないあなたは、最下位のまま
     st.lastDaily = date;
     st.daily = { date, matches };
     this.save();

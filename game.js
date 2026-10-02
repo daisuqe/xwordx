@@ -1,5 +1,5 @@
 import { Dict, canon, SMALL_OF } from "./dict.js";
-import { RankBook, todayString, NEAR } from "./rank.js";
+import { RankBook, todayString } from "./rank.js";
 
 let SIZE = 11; // 盤面の大きさ。レベルごとに変わる (PROFILES.size)
 const MIN_LEN = 2;
@@ -42,12 +42,13 @@ const SLIP_SKIP = 0.3;
 const EASY_BONUS = 0.3; // 段が1つ易しいごとに評価に足す点
 
 // ランクマッチの COM の性格: 相手のキャラクターの強さ (18〜95) から連続的に決める
-// rank (相手の現在の順位) ごとに、使える語の段の上限を決める。[順位の上限, 段]。50 位より下は強さから決まる (最大 4)
-const RANK_LV = [[3, 9], [6, 8], [9, 7], [12, 6], [25, 5], [50, 4]];
-const LOWER_MAX_T = 0.5, LOWER_RANK = 25; // 26 位より下は、強さの値 (島や単語の長さなど) も頭打ちにする
+// rank (相手の現在の順位) ごとに、使える語の段の上限を決める。[順位の上限, 段]。60 位より下は強さから決まる (最大 4)
+const RANK_LV = [[5, 9], [10, 8], [15, 7], [20, 6], [40, 5], [60, 4]];
+// 強さの値 (島や単語の長さなど) の頭打ち: 25 位まではなし、26〜70 位は 0.7、71 位より下は 0.5
+const T_CAPS = [[25, 1], [70, 0.7], [Infinity, 0.5]];
 function profileFromStrength(strength, rank = 99) {
   let t = Math.min(1, Math.max(0, (strength - 15) / 80)); // 0 (弱い) 〜 1 (強い)
-  if (rank > LOWER_RANK) t = Math.min(t, LOWER_MAX_T);
+  t = Math.min(t, T_CAPS.find(([max]) => rank <= max)[1]);
   let lv = Math.round(1 + t * 8);
   const row = RANK_LV.find(([max]) => rank <= max);
   lv = row ? row[1] : Math.min(lv, 4);
@@ -153,7 +154,7 @@ let currentView = "title";
 function showView(name) {
   currentView = name;
   closeScoreDetails();
-  for (const v of ["title", "help", "edit", "rank", "game"]) $(`${v}-view`).hidden = v !== name;
+  for (const v of ["title", "help", "edit", "rank", "history", "game"]) $(`${v}-view`).hidden = v !== name;
   document.body.classList.toggle("in-game", name === "game"); // 対局中は 1 画面に収める (スクロールしない)
   if (name !== "game") window.scrollTo(0, 0);
   if (name === "rank") { centerRank(); requestAnimationFrame(centerRank); setTimeout(centerRank, 250); }
@@ -358,7 +359,7 @@ function renderRank() {
 function recordRank(a, b) {
   if (mode !== "rank" || !opponent || !rankBook || rankRecorded) return null;
   rankRecorded = true;
-  return rankBook.record(opponent.name, a === b ? 0.5 : a > b ? 1 : 0); // { oldRank, newRank, delta, rating }
+  return rankBook.record(opponent.name, a === b ? 0.5 : a > b ? 1 : 0, `${a}-${b}`); // { oldRank, newRank, delta, rating }
 }
 const rankText = (r) => (r ? `  順位 ${r.oldRank}→${r.newRank} (${r.delta >= 0 ? "+" : ""}${r.delta})` : "");
 
@@ -515,6 +516,25 @@ function render(preview) {
   $("pass").disabled = over || turn !== P;
   // 手番のスコア枠を明るく光らせる (終了したら両方消す)
   for (const bit of [P, C]) scoreCards[bit].classList.toggle("active", !over && turn === bit);
+  // 試合が終わったら、勝った方のスコア枠のまわりにキラキラと光のエフェクトを出す (引き分けは無し)
+  const tp = total(P), tc = total(C);
+  for (const bit of [P, C]) {
+    const card = scoreCards[bit], win = over && (bit === P ? tp > tc : tc > tp);
+    card.classList.toggle("winner", win);
+    let stars = card.querySelector(".win-stars");
+    if (win && !stars) {
+      stars = document.createElement("span");
+      stars.className = "win-stars";
+      stars.setAttribute("aria-hidden", "true");
+      for (let i = 0; i < 10; i++) { // 枠のまわりに星を並べる (出る時間をずらして、またたかせる)
+        const st = document.createElement("i");
+        const ang = (i / 10) * Math.PI * 2; // 枠のふちの楕円にそって並べる
+        st.style.cssText = `left:${50 + Math.cos(ang) * 52}%;top:${50 + Math.sin(ang) * 60}%;--d:${(i * 0.23).toFixed(2)}s;--s:${8 + (i % 3) * 4}px`;
+        stars.append(st);
+      }
+      card.append(stars);
+    } else if (!win && stars) stars.remove();
+  }
 }
 
 // 新しくできた単語を長丸 (カプセル) で囲む。盤面の上に重ねた #marks に、マスの位置から計算して描く
@@ -906,7 +926,7 @@ async function runSequence(bd, id) {
   // 4) 合計を大きく出して、最低表示時間まで残す
   if (!alive()) return;
   const box = boardEl.parentElement;
-  fxEl("fx-total", box.clientWidth / 2, box.clientHeight / 2, `<span class="tag">${escHtml(NAME[bd.who])}</span><b>+${bd.total}</b>`, `color:${col}`);
+  fxEl("fx-total", box.clientWidth / 2, box.clientHeight / 2, `<span class="tag">${escHtml(NAME[bd.who])}</span><b>+${bd.total}</b>`, `color:${bd.who === P ? "#2a66ff" : "#ff2a50"}`); // 合計の文字は、自分の色の濃い色 (グローは白寄りの金色)
   blip(1047, 0.2, "triangle", 0.3);
   const rest = Math.max(POP_HOLD, POP_MIN_MS - (performance.now() - popStart));
   await sleepFx(rest / FX_SCALE);
@@ -1420,7 +1440,7 @@ for (const btn of document.querySelectorAll(".level-choice")) {
     else startLevel(btn.dataset.level);
   });
 }
-// ランクマッチ: 相手は選べない。試合開始を押すと、自分の順位の上下30位以内から1人が決まる。順位の高い方が先攻
+// ランクマッチ: 相手は選べない。試合開始を押すと、自分の順位の上下20位以内から1人が決まる。順位の高い方が先攻
 // 対戦前の紹介: 左上にあなた、右下に相手、真ん中に VS とこれまでの対戦成績。少し見せてから (タップで早送り) 試合を始める
 let vsTimer = 0, vsGo = null;
 function showVsIntro(pick, me, first) {
@@ -1444,12 +1464,29 @@ $("vs-intro").addEventListener("click", () => vsGo?.());
 $("rank-start").addEventListener("click", () => {
   if (!dict || !rankBook) return;
   ensureAudio();
-  const { me, rows } = rankBook.nearby(); // 1 位から最下位まで全員
-  const pool = rows.filter((r) => !r.isPlayer && Math.abs(r.rank - me.rank) <= NEAR); // 上下 NEAR 位以内
+  const { me, rows: pool } = rankBook.opponentPool(); // 対戦相手になれる人 (上位ほど狭くなる)
   const pick = pool[Math.floor(Math.random() * pool.length)];
   showVsIntro(pick, me, pick.rank < me.rank ? C : P);
 });
 $("rank-back").addEventListener("click", () => history.back());
+
+// ランクマッチの対戦履歴 (新しい順、最大 100 件): 何位の誰に、勝ったか負けたか
+function renderHistory() {
+  const list = $("history-list");
+  list.replaceChildren();
+  const rows = rankBook?.state.history || [];
+  $("history-empty").hidden = rows.length > 0;
+  for (const h of rows) {
+    const c = roster.find((x) => x.name === h.opp);
+    const res = h.result === 1 ? ["WIN", "win"] : h.result === 0 ? ["LOSE", "lose"] : ["DRAW", "draw"];
+    const li = document.createElement("li");
+    li.innerHTML = `<div class="rank-row hist-row"><span class="rk">${h.oppRank}</span><span class="face">${c ? faceHTML(c) : ""}</span>` +
+      `<span class="nm">${h.opp}</span><span class="hres ${res[1]}">${res[0]}</span><span class="rt">${h.score}</span><i class="hd">${(h.date || "").slice(5).replace("-", "/")}</i></div>`;
+    list.appendChild(li);
+  }
+}
+$("rank-history").addEventListener("click", () => { renderHistory(); navigate("history"); });
+$("history-back").addEventListener("click", () => history.back());
 // ランクマッチが終わったら、そのまま次の対戦相手を選んで対戦前の紹介へ
 $("next-match").addEventListener("click", () => {
   if (!dict || !rankBook || !over || mode !== "rank") return;
@@ -1569,6 +1606,7 @@ addEventListener("popstate", (e) => {
   if (currentView === "game") { session++; hidePop(); hideVictory(); $("leave-confirm").hidden = true; }
   leaving = false;
   if (target === "rank") renderRank();
+  if (target === "history") renderHistory();
   showView(target);
 });
 // MENU: 対局中なら確認してから戻る

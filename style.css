@@ -611,3 +611,44 @@ button.rank-row:hover, button.rank-row:focus-visible { background: #1b562b; }
 .edit-option:hover { border-color: #fff; }
 .edit-option { background: #384b42; border-color: #6a9c84; }
 .edit-option { background: #2a5a42; border-color: #4fbf8a; }
+
+/* ===== 勝った方のスコア枠: 金色の光が脈打ち、まわりでキラキラが光る ===== */
+.game-view .sc.winner { border-color: #ffe27a; animation: win-pulse 1.4s ease-in-out infinite; }
+@keyframes win-pulse {
+  0%, 100% { box-shadow: 0 0 8px 1px rgba(255, 226, 122, .7), 0 0 20px 4px rgba(255, 182, 46, .4); }
+  50% { box-shadow: 0 0 16px 4px rgba(255, 238, 176, .95), 0 0 42px 12px rgba(255, 182, 46, .6); }
+}
+.win-stars { position: absolute; inset: 0; pointer-events: none; }
+.win-stars i { position: absolute; width: var(--s); height: var(--s); margin: calc(var(--s) / -2);
+  background: #fff6c8; box-shadow: 0 0 8px 2px #ffe27a; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0; animation: win-star 1.8s ease-in-out var(--d) infinite; }
+@keyframes win-star { 0%, 100% { opacity: 0; scale: .2; rotate: 0deg; } 45% { opacity: 1; scale: 1.2; rotate: 90deg; } 70% { opacity: .7; scale: .8; } }
+
+/* ===== ランクマッチ: HISTORY ボタン (右上) と対戦履歴 ===== */
+.rank-view .match-bar, .history-view .match-bar { justify-content: space-between; }
+.history-list { cursor: default; }
+.hist-row { grid-template-columns: 2.4em 40px 1fr auto auto auto; }
+.hist-row .hres { font-size: 16px; letter-spacing: .08em; }
+.hist-row .hres.win { color: #ffe27a; } .hist-row .hres.lose { color: var(--red-text); } .hist-row .hres.draw { color: #b4d8c8; }
+.hist-row .hd { color: var(--dim); font-size: 13px; }
+
+/* ===== 1ターンの最後の合計: 文字は自分の色の濃い色。グローは白寄りで明るく、文字の上にも少し乗せる ===== */
+.fx-total { text-shadow: 0 0 6px #fff, 0 0 16px #fffbe6, 0 0 36px #ffeeb0, 0 0 66px rgba(255, 222, 130, .8), 0 4px 0 #0008; }
+.fx-total b { position: relative; }
+.fx-total b::after { content: ""; position: absolute; inset: -8% -16%; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, .3) 0, rgba(255, 250, 220, .12) 48%, transparent 72%); }
+.hist-row .rt, .hist-row .hres, .hist-row .hd { white-space: nowrap; } .hist-row .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* 合計のグロー: 半分の強さ */
+.fx-total { text-shadow: 0 0 4px rgba(255, 255, 255, .6), 0 0 10px rgba(255, 251, 230, .5), 0 0 22px rgba(255, 238, 176, .45), 0 0 40px rgba(255, 222, 130, .4), 0 4px 0 #0008; }
+.fx-total b::after { background: radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, .15) 0, rgba(255, 250, 220, .06) 48%, transparent 72%); }
+
+/* 合計のグロー: 文字の上に乗せる光は明るく、後ろのにじみはもう少し抑える */
+.fx-total { text-shadow: 0 0 3px rgba(255, 255, 255, .45), 0 0 8px rgba(255, 251, 230, .35), 0 0 18px rgba(255, 238, 176, .3), 0 0 32px rgba(255, 222, 130, .25), 0 4px 0 #0008; }
+.fx-total b::after { background: radial-gradient(ellipse at 50% 45%, rgba(255, 255, 255, .5) 0, rgba(255, 252, 230, .26) 50%, transparent 74%); }
+
+/* 合計のグロー: ピカッと鋭く。外へ広がるぼんやりしたにじみは狭く */
+.fx-total { text-shadow: 0 0 2px #fff, 0 0 6px rgba(255, 255, 255, .85), 0 0 12px rgba(255, 238, 170, .65), 0 0 20px rgba(255, 214, 110, .35), 0 4px 0 #0008; }
+.fx-total b::after { inset: -4% -8%; background: radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, .6) 0, rgba(255, 252, 230, .28) 45%, transparent 70%); }
+.fx-total { animation: fx-total-in .5s cubic-bezier(.2, 1.6, .4, 1) both, fx-total-flash .55s ease-out both; }
+@keyframes fx-total-flash { 0% { filter: brightness(2.4) saturate(.6); } 100% { filter: none; } }
