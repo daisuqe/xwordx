@@ -1184,14 +1184,102 @@ function dragDir(e) {
 }
 
 boardEl.addEventListener("pointerdown", (e) => {
-  if (!dict || over || busy || turn !== P) return;
+  if (!dict) return;
   const cell = cellAt(e);
   if (!cell) return;
+  // 文字を入力していないとき (または自分の番でないとき) に置かれた文字を押すと、その文字を含む単語の意味を出す
+  if (letters[cell.r][cell.c] && (!currentWord() || over || busy || turn !== P)) return openWordInfo(cell.r, cell.c);
+  if (over || busy || turn !== P) return;
   if (!currentWord()) return say("単語を入力してください", true);
   kb = null; // マウスで操作するときは、キーボードのカーソルを消す
   boardEl.setPointerCapture(e.pointerId);
   drag = cell;
 });
+
+// ---------- 単語の意味: 日本語ウィクショナリーでタップしたときに引く (ネットが必要) ----------
+const WIKI_API = "https://ja.wiktionary.org/w/api.php";
+const wikiCache = new Map(); // 見出し -> { defs: [...], url } | null
+const toKata = (s) => s.replace(/[ぁ-ゖ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) + 0x60));
+// ウィキテキストを、読みやすい文にする
+function wikiClean(t) {
+  return t
+    .replace(/<ref[^>]*>.*?<\/ref>|<ref[^>]*\/>|<[^>]+>/g, "")
+    .replace(/\{\{\s*(?:w|wikipedia|jaw|lang)\s*\|([^|}]*)[^}]*\}\}/g, "$1")
+    .replace(/\{\{\s*context\s*\|([^}]*)\}\}/g, (m, a) => `(${a.split("|").filter((x) => x && !x.includes("=")).join("・")})`)
+    .replace(/\{\{[^{}]*\}\}/g, "")
+    .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")
+    .replace(/'{2,}/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+async function wikiLookup(title) {
+  const url = `${WIKI_API}?action=query&prop=revisions&rvprop=content&rvslots=main&format=json&formatversion=2&redirects=1&origin=*&titles=${encodeURIComponent(title)}`;
+  const res = await fetch(url);
+  const page = (await res.json()).query?.pages?.[0];
+  const text = page && !page.missing ? page.revisions?.[0]?.slots?.main?.content : null;
+  if (!text) return null;
+  // 「日本語」の節だけを取り出す (次の言語の節 "==言語==" の手前まで)
+  const lines = text.split(String.fromCharCode(10));
+  let from = lines.findIndex((l) => /^==\s*(\{\{L\|ja\}\}|日本語)\s*==/.test(l.trim()));
+  if (from < 0) from = lines.findIndex((l) => l.includes("{{L|ja}}"));
+  if (from < 0) return null;
+  let to = lines.findIndex((l, i) => i > from && /^==[^=]/.test(l));
+  if (to < 0) to = lines.length;
+  const defs = [];
+  for (const line of lines.slice(from, to)) {
+    const m = /^(#{1,2})(?![#*:;])\s*(.*)$/.exec(line);
+    if (!m) continue;
+    const d = wikiClean(m[2]);
+    if (d && defs.length < 6) defs.push((m[1].length > 1 ? "　・" : "") + (d.length > 140 ? d.slice(0, 140) + "…" : d));
+  }
+  return defs.length ? { defs, url: `https://ja.wiktionary.org/wiki/${encodeURIComponent(page.title)}` } : null;
+}
+async function lookupWord(display, canonWord) {
+  const keys = [...new Set([display, canonWord, toKata(display), toKata(canonWord)])];
+  for (const k of keys) {
+    if (wikiCache.has(k)) { if (wikiCache.get(k)) return wikiCache.get(k); continue; }
+    const r = await wikiLookup(k);
+    wikiCache.set(k, r);
+    if (r) return r;
+  }
+  return null;
+}
+const wiEl = $("word-info");
+function closeWordInfo() { wiEl.hidden = true; }
+$("wi-close").addEventListener("click", closeWordInfo);
+wiEl.addEventListener("pointerdown", (e) => { if (e.target === wiEl) closeWordInfo(); }); // 外側を押しても閉じる
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !wiEl.hidden) closeWordInfo(); });
+function openWordInfo(r, c) {
+  const words = []; // その文字を通る、横と縦の単語
+  for (const dir of [[0, 1], [1, 0]]) {
+    const run = runAt(r, c, dir, new Map());
+    if (run.idx.length >= 2) words.push({ show: run.idx.map((k) => shown((k / SIZE) | 0, k % SIZE)).join(""), canon: run.s });
+  }
+  if (!words.length) return say("この文字を含む単語はありません");
+  const body = $("wi-body");
+  body.replaceChildren();
+  const stamp = ++wiStamp;
+  for (const w of words) {
+    const sec = document.createElement("section");
+    sec.innerHTML = `<h3></h3><div class="wi-def">しらべています…</div>`;
+    sec.querySelector("h3").textContent = w.show;
+    body.append(sec);
+    const def = sec.querySelector(".wi-def");
+    lookupWord(w.show, w.canon).then((r) => {
+      if (stamp !== wiStamp) return;
+      if (!r) { def.textContent = "ウィクショナリーに載っていません"; def.classList.add("none"); return; }
+      def.replaceChildren(...r.defs.map((d) => Object.assign(document.createElement("p"), { textContent: d })));
+      const a = Object.assign(document.createElement("a"), { href: r.url, target: "_blank", rel: "noopener", textContent: "ウィクショナリーで開く" });
+      def.append(a);
+    }).catch(() => {
+      if (stamp !== wiStamp) return;
+      def.textContent = "意味を取得できませんでした (ネットにつながっていないか、混み合っています)";
+      def.classList.add("none");
+    });
+  }
+  wiEl.hidden = false;
+}
+let wiStamp = 0;
 
 boardEl.addEventListener("pointermove", (e) => {
   if (!drag) return;

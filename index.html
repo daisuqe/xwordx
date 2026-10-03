@@ -221,6 +221,15 @@
     <ol id="history-list" class="rank-list history-list" aria-label="Match history"></ol>
   </section>
 
+  <!-- 単語の意味 (盤面の文字をタップすると、日本語ウィクショナリーで引いて出す) -->
+  <div id="word-info" class="word-info" role="dialog" aria-label="Word meaning" hidden>
+    <div class="wi-card">
+      <button id="wi-close" class="wi-close" type="button" aria-label="Close">&times;</button>
+      <div id="wi-body" class="wi-body"></div>
+      <p class="wi-credit">出典: <a href="https://ja.wiktionary.org/" target="_blank" rel="noopener">日本語ウィクショナリー</a> (CC BY-SA 4.0)</p>
+    </div>
+  </div>
+
   <!-- GAME -->
   <section id="game-view" class="game-view" aria-label="Game" hidden>
     <div class="match-bar">

@@ -672,3 +672,19 @@ input, textarea { -webkit-user-select: text; user-select: text; } /* 入力欄�
 body.in-game, html:has(body.in-game) { overflow: hidden; } /* 対局中は画面そのものを動かさない */
 body.in-game { touch-action: manipulation; }
 img, canvas { -webkit-user-drag: none; user-drag: none; }
+
+/* ===== 単語の意味 (画面中央のウィンドウ) ===== */
+.word-info { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .6); }
+.word-info[hidden] { display: none; }
+.wi-card { position: relative; width: min(100%, 480px); max-height: min(80dvh, 560px); overflow-y: auto; padding: 18px 18px 14px; border: 2px solid #4fe08a; background: #0a2417; box-shadow: 0 0 24px #000c, 0 0 18px #2bd98b44; -webkit-user-select: text; user-select: text; }
+.wi-close { position: absolute; top: 6px; right: 6px; width: 40px; height: 40px; padding: 0; border: 1px solid #4fe08a; background: #123d22; color: #d8fff0; font: 700 26px/1 var(--kana); }
+.wi-close:hover { background: #2f8a45; border-color: #d2ffe2; }
+.wi-body { padding-right: 36px; }
+.wi-body section + section { margin-top: 14px; padding-top: 12px; border-top: 1px solid #2f6a4a; }
+.wi-body h3 { margin: 0 0 6px; font: 28px yodaka, monospace; letter-spacing: .08em; color: #ffe27a; }
+.wi-def { font: 16px/1.6 var(--kana); color: #e8fff4; }
+.wi-def p { margin: 0 0 4px; }
+.wi-def.none { color: #9bbfae; }
+.wi-def a, .wi-credit a { color: #8dffb4; }
+.wi-def a { display: inline-block; margin-top: 6px; font-size: 14px; }
+.wi-credit { margin: 12px 0 0; font-size: 11px; color: #78ad98; }
