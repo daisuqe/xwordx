@@ -1214,7 +1214,7 @@ function wikiClean(t) {
 }
 async function wikiLookup(title) {
   const url = `${WIKI_API}?action=query&prop=revisions&rvprop=content&rvslots=main&format=json&formatversion=2&redirects=1&origin=*&titles=${encodeURIComponent(title)}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000) }); // つながらない・遅いときは、6 秒で英語の辞書に切り替える
   const page = (await res.json()).query?.pages?.[0];
   const text = page && !page.missing ? page.revisions?.[0]?.slots?.main?.content : null;
   if (!text) return null;
@@ -1278,7 +1278,8 @@ function openWordInfo(r, c) {
     const def = sec.querySelector(".wi-def");
     // 日本語ウィクショナリー → (載っていない・つながらないときは) JMdict の英語の意味
     const p = (text, cls) => Object.assign(document.createElement("p"), { textContent: text, className: cls || "" });
-    lookupWord(w.show, w.canon).catch(() => null).then(async (r) => {
+    let offline = false;
+    lookupWord(w.show, w.canon).catch(() => { offline = true; return null; }).then(async (r) => {
       if (stamp !== wiStamp) return;
       if (r) {
         def.replaceChildren(...r.defs.map((d) => p(d)));
@@ -1288,7 +1289,7 @@ function openWordInfo(r, c) {
       const g = await glossLookup(w.canon).catch(() => null);
       if (stamp !== wiStamp) return;
       if (g) {
-        def.replaceChildren(p("ウィクショナリーには載っていません。英語の辞書 (JMdict) の意味:", "wi-note"), ...g.map((e) => p((e.k ? `【${e.k}】` : "") + e.g)));
+        def.replaceChildren(p(offline ? "ネットにつながっていないため、英語の辞書 (JMdict) の意味を出します:" : "ウィクショナリーには載っていません。英語の辞書 (JMdict) の意味:", "wi-note"), ...[...new Set(g.map((e) => (e.k ? `【${e.k}】` : "") + e.g))].map((t) => p(t))); // 同じ内容は 1 つにまとめる
       } else {
         def.textContent = "意味が見つかりませんでした";
         def.classList.add("none");
