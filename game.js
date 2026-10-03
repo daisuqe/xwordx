@@ -1248,6 +1248,13 @@ async function lookupWord(display, canonWord) {
   }
   return null;
 }
+// JMdict の英語の意味 (data/gloss/<先頭文字のコード>.json)。ウィクショナリーに無い語、ネットにつながらないときの代わり
+const glossShards = new Map();
+async function glossLookup(canonWord) {
+  const key = canon(canonWord), first = key.codePointAt(0).toString(16);
+  if (!glossShards.has(first)) glossShards.set(first, fetch(`data/gloss/${first}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+  return (await glossShards.get(first))[key] || null;
+}
 const wiEl = $("word-info");
 function closeWordInfo() { wiEl.hidden = true; }
 $("wi-close").addEventListener("click", closeWordInfo);
@@ -1269,16 +1276,23 @@ function openWordInfo(r, c) {
     sec.querySelector("h3").textContent = w.show;
     body.append(sec);
     const def = sec.querySelector(".wi-def");
-    lookupWord(w.show, w.canon).then((r) => {
+    // 日本語ウィクショナリー → (載っていない・つながらないときは) JMdict の英語の意味
+    const p = (text, cls) => Object.assign(document.createElement("p"), { textContent: text, className: cls || "" });
+    lookupWord(w.show, w.canon).catch(() => null).then(async (r) => {
       if (stamp !== wiStamp) return;
-      if (!r) { def.textContent = "ウィクショナリーに載っていません"; def.classList.add("none"); return; }
-      def.replaceChildren(...r.defs.map((d) => Object.assign(document.createElement("p"), { textContent: d })));
-      const a = Object.assign(document.createElement("a"), { href: r.url, target: "_blank", rel: "noopener", textContent: "ウィクショナリーで開く" });
-      def.append(a);
-    }).catch(() => {
+      if (r) {
+        def.replaceChildren(...r.defs.map((d) => p(d)));
+        def.append(Object.assign(document.createElement("a"), { href: r.url, target: "_blank", rel: "noopener", textContent: "ウィクショナリーで開く" }));
+        return;
+      }
+      const g = await glossLookup(w.canon).catch(() => null);
       if (stamp !== wiStamp) return;
-      def.textContent = "意味を取得できませんでした (ネットにつながっていないか、混み合っています)";
-      def.classList.add("none");
+      if (g) {
+        def.replaceChildren(p("ウィクショナリーには載っていません。英語の辞書 (JMdict) の意味:", "wi-note"), ...g.map((e) => p((e.k ? `【${e.k}】` : "") + e.g)));
+      } else {
+        def.textContent = "意味が見つかりませんでした";
+        def.classList.add("none");
+      }
     });
   }
   wiEl.hidden = false;

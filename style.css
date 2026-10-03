@@ -688,3 +688,4 @@ img, canvas { -webkit-user-drag: none; user-drag: none; }
 .wi-def a, .wi-credit a { color: #8dffb4; }
 .wi-def a { display: inline-block; margin-top: 6px; font-size: 14px; }
 .wi-credit { margin: 12px 0 0; font-size: 11px; color: #78ad98; }
+.wi-note { color: #9bbfae; font-size: 13px; }
