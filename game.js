@@ -1220,17 +1220,21 @@ async function wikiLookup(title) {
   if (!text) return null;
   // 「日本語」の節だけを取り出す (次の言語の節 "==言語==" の手前まで)
   const lines = text.split(String.fromCharCode(10));
-  let from = lines.findIndex((l) => /^==\s*(\{\{L\|ja\}\}|日本語)\s*==/.test(l.trim()));
-  if (from < 0) from = lines.findIndex((l) => l.includes("{{L|ja}}"));
+  const isJa = (l) => /^==\s*(\{\{(?:L\|)?ja\}\}|日本語)\s*==/.test(l.trim());
+  const from = lines.findIndex(isJa);
   if (from < 0) return null;
   let to = lines.findIndex((l, i) => i > from && /^==[^=]/.test(l));
   if (to < 0) to = lines.length;
   const defs = [];
+  let skip = false; // 翻訳・類義語などの節は読み飛ばす
   for (const line of lines.slice(from, to)) {
-    const m = /^(#{1,2})(?![#*:;])\s*(.*)$/.exec(line);
+    if (line.startsWith("=")) { skip = /trans|syn|ant|rel|pron|der|see|翻訳|類義|対義|関連|発音|派生|参照|同音の漢字/i.test(line); continue; }
+    if (skip) continue;
+    // 意味は "# ..." (副項目は "## ...")。同音異義語の一覧は "*【漢字】意味"
+    const m = /^(#{1,2})(?![#*:;])\s*(.*)$/.exec(line) || /^()\*\s*(【.*)$/.exec(line);
     if (!m) continue;
     const d = wikiClean(m[2]);
-    if (d && defs.length < 6) defs.push((m[1].length > 1 ? "　・" : "") + (d.length > 140 ? d.slice(0, 140) + "…" : d));
+    if (d && defs.length < 10) defs.push((m[1].length > 1 ? "　・" : "") + (d.length > 110 ? d.slice(0, 110) + "…" : d));
   }
   return defs.length ? { defs, url: `https://ja.wiktionary.org/wiki/${encodeURIComponent(page.title)}` } : null;
 }
