@@ -1,3 +1,9 @@
+// XWORDX
+// Copyright (c) 2026 daisuqe. All rights reserved.
+// Copying, modifying, redistributing, or republishing this game or any part of it without prior written permission
+// from the copyright holder is prohibited. See LICENSE.
+// 無断での複製・改変・再配布・転載を禁じます。詳しくは LICENSE を見てください。
+
 import { Dict, canon, SMALL_OF } from "./dict.js";
 import { RankBook, todayString } from "./rank.js";
 
@@ -1897,4 +1903,19 @@ if (new URLSearchParams(location.search).has("debug")) {
   window.addEventListener("pointerup", up);
   window.addEventListener("pointercancel", up);
   list.addEventListener("click", (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+}
+
+// ---------- LICENSE の表示 (タイトル画面の著作権表示を押す / Enter・スペース) ----------
+{
+  const view = $("license-view"), opener = $("license-open"), closer = $("license-close");
+  const open = () => { view.hidden = false; closer.focus(); };
+  const close = () => { view.hidden = true; opener.focus(); };
+  opener.addEventListener("click", open);
+  closer.addEventListener("click", close);
+  view.addEventListener("pointerdown", (e) => { if (e.target === view) close(); }); // 画面の外を押しても閉じる
+  document.addEventListener("keydown", (e) => {
+    if (view.hidden) return;
+    if (e.key === "Escape") close();
+    else if (e.key === "Tab") { e.preventDefault(); closer.focus(); } // 表示中は、Close ボタンにだけ移動できる
+  });
 }

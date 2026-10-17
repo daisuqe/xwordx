@@ -1,7 +1,19 @@
+<!--
+  XWORDX
+  Copyright (c) 2026 daisuqe. All rights reserved.
+  Copying, modifying, redistributing, or republishing this game or any part of it without prior written
+  permission from the copyright holder is prohibited. See LICENSE.
+
+  XWORDX
+  Copyright (c) 2026 daisuqe. All rights reserved.
+  無断での複製・改変・再配布・転載を禁じます。詳しくは LICENSE を見てください。
+-->
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="author" content="daisuqe">
+<meta name="copyright" content="Copyright (c) 2026 daisuqe. All rights reserved.">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#050a0b">
 <title>XWORDX</title>
@@ -36,6 +48,7 @@
         MODIFIED: CONVERTED TO A COMPACT BINARY WITH DIFFICULTY LEVELS.</p>
       <p>FONT: NOTO SANS JP (SUBSET), <a href="fonts/OFL.txt">SIL OPEN FONT LICENSE 1.1</a>.</p>
     </footer>
+    <button id="license-open" class="copyright" type="button" aria-haspopup="dialog">&copy; 2026 daisuqe. All rights reserved.</button>
   </section>
 
   <!-- HOW TO PLAY -->
@@ -220,6 +233,21 @@
     <p id="history-empty" class="rank-daily">NO MATCHES YET</p>
     <ol id="history-list" class="rank-list history-list" aria-label="Match history"></ol>
   </section>
+
+  <!-- LICENSE (タイトル画面の著作権表示を押すと出す。文章は LICENSE ファイルと同じ内容) -->
+  <div id="license-view" class="word-info license-view" role="dialog" aria-modal="true" aria-labelledby="license-title" hidden>
+    <div class="wi-card">
+      <h3 id="license-title" class="license-title">LICENSE</h3>
+      <div class="license-text">
+        <p>Copyright (c) 2026 daisuqe. All rights reserved.</p>
+        <p>This game ("XWORDX"), including its source code, graphics, music data, and text, is the property of the copyright holder. No license is granted to copy, modify, distribute, sublicense, sell, or publish any part of it, in source or compiled form, without prior written permission from the copyright holder.</p>
+        <p>You may play the game as published at its official page.</p>
+        <p lang="ja">本ゲーム「XWORDX」(ソースコード、画像、音楽データ、文章を含む)の著作権は、daisuqe が保有します。著作権者の事前の書面による許可なく、全部または一部を、複製、改変、再配布、転載、販売、公開することを禁じます。</p>
+        <p lang="ja">公式に公開されているページで、遊ぶことは自由です。</p>
+      </div>
+      <button id="license-close" class="btn license-close" type="button">Close</button>
+    </div>
+  </div>
 
   <!-- 単語の意味 (盤面の文字をタップすると、日本語ウィクショナリーで引いて出す) -->
   <div id="word-info" class="word-info" role="dialog" aria-label="Word meaning" hidden>

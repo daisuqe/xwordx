@@ -689,3 +689,12 @@ img, canvas { -webkit-user-drag: none; user-drag: none; }
 .wi-def a { display: inline-block; margin-top: 6px; font-size: 14px; }
 .wi-credit { margin: 12px 0 0; font-size: 11px; color: #78ad98; }
 .wi-note { color: #9bbfae; font-size: 13px; }
+
+/* ===== 著作権の表示 (タイトル画面の一番下) と LICENSE の画面 ===== */
+.copyright { display: block; width: 100%; margin: 10px 0 0; padding: 10px 4px; border: 0; background: none; color: #4f7565; font: 11px/1.4 ui-monospace, Consolas, monospace; letter-spacing: .06em; text-align: center; overflow-wrap: anywhere; }
+.copyright:hover, .copyright:focus-visible { color: #8dffb4; text-decoration: underline; }
+.license-view .wi-card { padding-top: 16px; }
+.license-title { margin: 0 0 10px; font: 24px yodaka, monospace; letter-spacing: .1em; color: #ffe27a; }
+.license-text p { margin: 0 0 10px; font: 13px/1.7 var(--kana); color: #e8fff4; }
+.license-text p:first-child { font-weight: 700; }
+.license-close { display: block; margin: 8px 0 0 auto; padding: 8px 20px; font-size: 16px; }
