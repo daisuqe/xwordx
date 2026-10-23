@@ -17,13 +17,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#050a0b">
 <title>XWORDX</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261024">
 </head>
 <body>
 <main class="app">
 
   <!-- TITLE -->
   <section id="title-view" class="title-view" aria-label="Title">
+    <button id="apps-open" class="apps-open" type="button" aria-label="App list" aria-haspopup="dialog"><canvas id="apps-icon" width="16" height="16" aria-hidden="true"></canvas></button>
     <header class="brand">
       <i class="gem blue" aria-hidden="true"></i><h1>XWORDX</h1><i class="gem red" aria-hidden="true"></i>
     </header>
@@ -234,6 +235,14 @@
     <ol id="history-list" class="rank-list history-list" aria-label="Match history"></ol>
   </section>
 
+  <!-- アプリ一覧へ移動する前の確認 (タイトル画面の右上のボタンを押すと出す) -->
+  <div id="apps-confirm" class="word-info apps-confirm" role="alertdialog" aria-modal="true" aria-labelledby="apps-text" hidden>
+    <div class="wi-card apps-card">
+      <p id="apps-text" class="apps-text"></p>
+      <div class="apps-actions"><button id="apps-yes" class="btn" type="button">Yes</button><button id="apps-no" class="btn" type="button">No</button></div>
+    </div>
+  </div>
+
   <!-- LICENSE (タイトル画面の著作権表示を押すと出す。文章は LICENSE ファイルと同じ内容) -->
   <div id="license-view" class="word-info license-view" role="dialog" aria-modal="true" aria-labelledby="license-title" hidden>
     <div class="wi-card">
@@ -331,6 +340,6 @@
 <script src="roster.js"></script>
 <script src="player-data.js"></script>
 <script src="voice.js"></script>
-<script type="module" src="game.js"></script>
+<script type="module" src="game.js?v=20261024"></script>
 </body>
 </html>

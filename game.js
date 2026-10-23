@@ -1496,7 +1496,7 @@ function kbPlace(dir) {
 document.addEventListener("keydown", (e) => {
   if (currentView !== "game" || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
   if (!dict || over || busy || turn !== P) return;
-  if (!$("leave-confirm").hidden || !$("victory").hidden || !$("vs-intro").hidden) return;
+  if (!$("leave-confirm").hidden || !$("victory").hidden || !$("vs-intro").hidden || !$("apps-confirm").hidden) return;
   const k = e.code;
   const move = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[k];
   if (move) {
@@ -1918,4 +1918,52 @@ if (new URLSearchParams(location.search).has("debug")) {
     if (e.key === "Escape") close();
     else if (e.key === "Tab") { e.preventDefault(); closer.focus(); } // 表示中は、Close ボタンにだけ移動できる
   });
+}
+
+
+// ---------- アプリ一覧へ移動するボタン (タイトル画面の右上) ----------
+{
+  // 16x16 の白黒データ (# が描く部分)。画像ファイルは使わず、canvas に 1 ドットずつ描く
+  const APPS_ICON = [
+    '......###...###.',
+    '.....#...#.#...#',
+    '.....#...#.#...#',
+    '.....#..#..#..#.',
+    '.....#..#..#..#.',
+    '....##..####..#.',
+    '..##.......#..#.',
+    '.#............#.',
+    '#.............#.',
+    '#..............#',
+    '############...#',
+    '............#..#',
+    '.###########...#',
+    '.#............#.',
+    '..##........##..',
+    '....########....',
+  ];
+  const ctx = $("apps-icon").getContext("2d");
+  ctx.fillStyle = "#3f6b58"; // さらに暗い緑
+  APPS_ICON.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === "#") ctx.fillRect(x, y, 1, 1); }));
+
+  const APPS_URL = "https://daisuqe.github.io/";
+  const lang = new URLSearchParams(location.search).get("lang") || navigator.language || "";
+  const ja = /^ja/i.test(lang);
+  $("apps-text").textContent = ja ? "アプリ一覧に移動します。\nこのゲームを離れますがよろしいですか？" : "This will take you to the app list.\nDo you want to leave this game?";
+  const view = $("apps-confirm"), opener = $("apps-open"), yes = $("apps-yes"), no = $("apps-no");
+  const open = () => { view.hidden = false; no.focus(); }; // 誤操作を防ぐため、No にフォーカス
+  const close = () => { view.hidden = true; opener.focus(); };
+  opener.addEventListener("click", open);
+  yes.addEventListener("click", () => { location.href = APPS_URL; });
+  no.addEventListener("click", close);
+  view.addEventListener("pointerdown", (e) => { if (e.target === view) close(); }); // 画面の外を押しても閉じる
+  document.addEventListener("keydown", (e) => {
+    if (view.hidden) return;
+    e.stopPropagation(); // 表示中は、ゲームのキー操作を効かせない
+    if (e.key === "Escape") { e.preventDefault(); close(); }
+    else if (e.key === "Tab" || e.key === "ArrowLeft" || e.key === "ArrowRight") { // Yes / No の間だけを移動する
+      e.preventDefault();
+      (document.activeElement === no ? yes : no).focus();
+    }
+  }, true);
 }
