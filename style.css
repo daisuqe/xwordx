@@ -715,3 +715,6 @@ img, canvas { -webkit-user-drag: none; user-drag: none; }
   .apps-open, .apps-open canvas { width: 48px; height: 48px; }
   .apps-open { opacity: 1; }
 }
+/* アプリ一覧ボタン: スマホも PC も 32px (16x16 の 2 倍) */
+.apps-open, .apps-open canvas, .apps-open:hover { width: 32px; height: 32px; }
+@media (min-width: 600px) { .apps-open, .apps-open canvas { width: 32px; height: 32px; } }
